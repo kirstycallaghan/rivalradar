@@ -359,7 +359,7 @@ def analyze_command(ack, respond, command):
 if __name__ == "__main__":
     # Add your tokens and uncomment to run
 
-handler = SocketModeHandler(app, os.environ.get("SLACK_APP_TOKEN"))
+    handler = SocketModeHandler(app, os.environ.get("SLACK_APP_TOKEN"))
 
 
     handler.start()
