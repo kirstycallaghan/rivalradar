@@ -263,8 +263,7 @@ def analyze_competitor_intelligent(url):
 
 def generate_analysis(url, analysis_result):
     """Generate competitive analysis using OpenAI"""
-    
-    monite_context = """
+monite_context = """
 MONITE'S COMPREHENSIVE AP/AR CAPABILITIES - DETAILED TECHNICAL SPECS:
 
 ACCOUNTS PAYABLE (AP) AUTOMATION:
@@ -736,7 +735,8 @@ PRICING MODEL:
 - Transaction-based pricing: Percentage of payment volume
 - Revenue sharing: Optional for platform partners
 - Usage-based API pricing: Per API call beyond included limits
-- No setup fees, no monthly minimums for basic tier"""
+- No setup fees, no monthly minimums for basic tier
+"""
     
     success = analysis_result['success']
     title = analysis_result['title']
@@ -859,6 +859,118 @@ def analyze_competitor_url(url):
     except Exception as e:
         print(f"❌ Analysis failed: {e}")
         return f"❌ RivalRadar analysis failed: {str(e)}\n\nTry manual research for this competitor."
+
+def extract_urls_from_text(text):
+    """Extract URLs from message text"""
+    url_pattern = r'https?://[^\s<>"{}|\\^`\[\]]+'
+    return re.findall(url_pattern, text)
+
+@app.event("reaction_added")
+def handle_reaction_added(event, say):
+    """Handle when someone adds a reaction to trigger analysis"""
+    
+    if event["reaction"] == "satellite_antenna":
+        try:
+            result = app.client.conversations_history(
+                channel=event["item"]["channel"],
+                latest=event["item"]["ts"],
+                limit=1,
+                inclusive=True
+            )
+            
+            if result["messages"]:
+                message = result["messages"][0]
+                message_text = message.get("text", "")
+                urls = extract_urls_from_text(message_text)
+                
+                if urls:
+                    app.client.reactions_add(
+                        channel=event["item"]["channel"],
+                        timestamp=event["item"]["ts"],
+                        name="eyes"
+                    )
+                    
+                    url = urls[0]
+                    analysis = analyze_competitor_url(url)
+                    
+                    say(
+                        text=f"🚨 *RivalRadar Analysis*\n\n{analysis}",
+                        thread_ts=event["item"]["ts"],
+                        channel=event["item"]["channel"]
+                    )
+                    
+                    app.client.reactions_remove(
+                        channel=event["item"]["channel"],
+                        timestamp=event["item"]["ts"],
+                        name="eyes"
+                    )
+                    app.client.reactions_add(
+                        channel=event["item"]["channel"],
+                        timestamp=event["item"]["ts"],
+                        name="white_check_mark"
+                    )
+                else:
+                    say(
+                        text="📡 RivalRadar triggered but no URLs found!",
+                        thread_ts=event["item"]["ts"],
+                        channel=event["item"]["channel"]
+                    )
+                    
+        except Exception as e:
+            say(
+                text=f"❌ RivalRadar error: {str(e)}",
+                thread_ts=event["item"]["ts"],
+                channel=event["item"]["channel"]
+            )
+
+@app.command("/analyze")
+def analyze_command(ack, respond, command):
+    ack()
+    url = command['text'].strip()
+    if url:
+        analysis = analyze_competitor_url(url)
+        respond(f"🚨 *RivalRadar Analysis*\n\n{analysis}")
+    else:
+        respond("Please provide a URL: `/analyze https://competitor.com`")
+
+@app.command("/rivalradar")
+def health_check(ack, respond):
+    ack()
+    available_apis = []
+    if SERP_API_KEY:
+        available_apis.append("SerpAPI")
+    if BRAVE_API_KEY:
+        available_apis.append("Brave Search")
+    
+    api_status = f"Search APIs: {', '.join(available_apis)}" if available_apis else "No search APIs configured"
+    respond(f"🚨 RivalRadar is online!\n{api_status}\nReact with 📡 to any URL or use `/analyze <url>`")
+
+if __name__ == "__main__":
+    print("🚨 Starting Intelligent RivalRadar...")
+    
+    required_vars = ["SLACK_BOT_TOKEN", "SLACK_APP_TOKEN", "OPENAI_API_KEY"]
+    optional_vars = ["SERP_API_KEY", "BRAVE_API_KEY"]
+    
+    missing = [var for var in required_vars if not os.environ.get(var)]
+    
+    if missing:
+        print(f"❌ Missing required environment variables: {', '.join(missing)}")
+        exit(1)
+    
+    # Check optional APIs
+    available_search_apis = [var for var in optional_vars if os.environ.get(var)]
+    if available_search_apis:
+        print(f"✅ Search APIs available: {', '.join(available_search_apis)}")
+    else:
+        print("⚠️ No search APIs configured - intelligence gathering will be limited")
+        print("Consider adding SERP_API_KEY or BRAVE_API_KEY for enhanced analysis")
+    
+    try:
+        handler = SocketModeHandler(app, os.environ.get("SLACK_APP_TOKEN"))
+        handler.start()
+        print("✅ Intelligent RivalRadar ready!")
+    except Exception as e:
+        print(f"❌ Failed to start: {e}")
 
 def extract_urls_from_text(text):
     """Extract URLs from message text"""
