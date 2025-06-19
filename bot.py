@@ -171,83 +171,129 @@ def analyze_competitor_url(url):
         
         # Complete Monite context
         monite_context = """
-        MONITE'S COMPLETE CAPABILITIES FOR COMPARISON:
-        
-        Core API Endpoints:
-        - Accounts Receivable: Create quotes/invoices, auto-recurring invoices, payment links, reconciliation
-        - Accounts Payable: Submit bills, OCR invoice capture, approval workflows
-        - Payments: Payment intents, automated bill payment, payment links, multiple payment methods
-        - E-Invoicing: Legally compliant e-invoices across 30+ jurisdictions
-        - Accounting Integration: 40+ accounting systems sync (QuickBooks, Xero, NetSuite, etc.)
-        - Utilities: File management, OCR, PDF generation, entity onboarding
-        
-        Integration Options:
-        - Full REST API for backend control
-        - React UI SDK with reusable components
-        - Drop-in components (framework-agnostic)
-        
-        Key Differentiators:
-        - Microservice-based scalable architecture with redundancy/failover
-        - AI-enhanced workflows (OCR & reconciliation)
-        - Full lifecycle management (onboarding to deactivation)
-        - Developer-first platform with interactive API explorer, sandbox, SDKs
-        - Embedded finance designed for marketplaces, neobanks, B2B SaaS
-        - 2-week implementation timeline
-        - Global compliance ready (30+ countries, multi-currency)
-        - Best-in-class Developer Experience (DevPortal Awards 2023 nominations)
-        - Revenue sharing model (0.1-2% on transactions)
-        """
-        
-        prompt = f"""
-        You are Steve Jobs analyzing a competitor to Monite. Monite is WINNING deals - be confident but strategic about threats.
+  monite_context = """
+MONITE'S DETAILED AP/AR CAPABILITIES FOR ACCURATE COMPARISON:
 
-        COMPETITOR: {company_name}
-        Data: {text_content}
-        News: {recent_news}
-        API Analysis: {api_analysis if api_analysis else "No API docs found"}
+ACCOUNTS PAYABLE (AP) FUNCTIONALITY:
+- Bill capture: Email forwarding, manual upload, OCR-powered data extraction
+- Invoice processing: Automated line-item extraction, coding suggestions, duplicate detection
+- Approval workflows: Custom multi-step approval chains, delegation, escalation rules
+- Vendor management: Vendor onboarding, payment terms, contact management
+- Payment execution: ACH, wire transfers, international payments, check printing
+- Payment scheduling: Batch payments, payment date optimization, cash flow management
+- Reconciliation: Bank feed integration, automated matching, exception handling
+- Reporting: Spend analytics, vendor reports, approval audit trails
 
-        {monite_context}
+ACCOUNTS RECEIVABLE (AR) FUNCTIONALITY:
+- Invoice creation: Template-based invoicing, recurring billing, milestone invoicing
+- Quote management: Quote-to-invoice conversion, approval workflows, version control
+- Payment collection: Payment links, multiple payment methods (card, ACH, bank transfer)
+- Payment reminders: Automated dunning sequences, customizable templates
+- Customer management: Credit limits, payment terms, contact management
+- Reconciliation: Payment matching, allocation, partial payment handling
+- Reporting: Aging reports, collection analytics, cash flow forecasting
 
-        CONTEXT: Monite regularly competes against and BEATS major competitors like Codat in deals. Analyze from a position of strength.
+E-INVOICING & COMPLIANCE:
+- Peppol e-invoicing: EU compliance, automated tax calculations
+- Multi-country support: 30+ jurisdictions, local tax requirements
+- Document formats: PDF generation, XML standards, digital signatures
 
-        STEVE JOBS ANALYSIS - BE DIRECT BUT CONFIDENT:
+TECHNICAL ARCHITECTURE:
+- REST API: 200+ endpoints, webhook support, rate limiting
+- SDK Options: React components, JavaScript SDK, Python SDK
+- Integration patterns: Embedded iframes, white-label UI, headless API
+- Authentication: OAuth 2.0, API keys, JWT tokens
+- Data sync: Real-time webhooks, batch processing, audit logs
 
-        **THREAT LEVEL: [HIGH if direct feature overlap + same market / MEDIUM if adjacent / LOW if different focus]**
+ACCOUNTING SYSTEM INTEGRATIONS:
+- 40+ platforms: QuickBooks, Xero, NetSuite, Sage, FreshBooks, Wave
+- Sync capabilities: Chart of accounts, tax rates, customers, vendors
+- Mapping: Flexible field mapping, custom categorization
+- Data flow: Bi-directional sync, conflict resolution
 
-        **WHY THIS THREAT LEVEL:** [Specific overlapping capabilities, but note where Monite has advantages]
+EMBEDDED FINANCE POSITIONING:
+- Target market: B2B SaaS platforms, marketplaces, neobanks
+- Implementation: 2-week average integration time
+- Revenue model: Transaction-based pricing, revenue sharing options
+- Deployment: Cloud-native, EU and US data centers
+"""
 
-        **RECENT INTEL:** {recent_news}
+prompt = f"""
+You are analyzing a competitor to Monite's AP/AR automation platform. Provide objective, data-driven analysis based on factual comparison.
 
-        **COMPETITIVE REALITY CHECK:**
-        - Their approach vs Monite's winning strategy: [How do they compete and why do we usually win?]
-        - Their strengths we need to watch: [Real threats to address]
-        - Our advantages they can't match: [Why prospects choose Monite]
-        - Market positioning battle: [Who owns what narrative]
+COMPETITOR DATA:
+URL: {url}
+Title: {title}
+Content: {text_content}
 
-        **WHAT THEY DO WELL:** [Honest assessment of their strengths]
+RECENT NEWS (Last 3 months):
+{recent_news}
 
-        **WHERE MONITE WINS:** [Specific advantages that win deals - be confident about these]
+API DOCUMENTATION:
+{api_analysis if api_analysis else "No API docs found - analysis limited to website content"}
 
-        **IMMEDIATE ACTIONS:**
-        - Product team: [Investigate specific capabilities, but from position of strength]
-        - Sales team: [Emphasize winning differentiators]
-        - Technical team: [Enhance advantages, monitor their developments]
+{monite_context}
 
-        **BATTLE STRATEGY:**
-        - Lead conversations with: [Monite's proven winning points]
-        - Neutralize their strength by: [How to counter their best features]
-        - Close deals by asking: [Questions that highlight Monite's advantages]
+ANALYSIS FRAMEWORK:
 
-        **SUMMARY:**
-        [Direct advice that reflects Monite's competitive success - confident but not complacent. 2-3 sentences max.]
+**THREAT LEVEL ASSESSMENT:**
+HIGH THREAT = Direct AP or AR functionality + targets B2B software market + significant funding/traction
+MEDIUM THREAT = Adjacent financial automation OR targets different market but expanding
+LOW THREAT = Different focus area with minimal AP/AR overlap
+
+Analyze this format:
+
+**THREAT LEVEL: [HIGH/MEDIUM/LOW]**
+
+**THREAT JUSTIFICATION:**
+[Specific reasoning based on their actual AP/AR capabilities, target market, and competitive positioning]
+
+**RECENT DEVELOPMENTS:**
+[Key insights from recent news - funding, product launches, partnerships, market expansion]
+
+**AP/AR CAPABILITY ANALYSIS:**
+*Accounts Payable:*
+- Bill capture & processing: [Their capabilities vs Monite's OCR + workflow engine]
+- Approval workflows: [Their workflow features vs Monite's custom approval chains]
+- Payment execution: [Payment methods vs Monite's ACH/wire/international options]
+- Vendor management: [Their vendor features vs Monite's vendor portal]
+
+*Accounts Receivable:*
+- Invoice creation: [Their invoicing vs Monite's template + recurring billing]
+- Payment collection: [Payment methods vs Monite's payment links + multi-method support]
+- Customer management: [Their CRM features vs Monite's credit limits + terms management]
+- Collections: [Dunning processes vs Monite's automated reminder sequences]
+
+**API & INTEGRATION COMPARISON:**
+[If API docs available: endpoint comparison, authentication methods, webhook support, SDK availability vs Monite's 200+ endpoints + React/JS/Python SDKs]
+
+**ACCOUNTING PLATFORM INTEGRATIONS:**
+[Their integration count/quality vs Monite's 40+ platforms with bi-directional sync]
+
+**PRODUCT TEAM ANALYSIS:**
+- *Feature gaps in Monite:* [Specific AP/AR features they offer that Monite lacks]
+- *Technical architecture differences:* [API design, integration patterns, scalability approaches]
+- *Investigation priorities:* [Specific areas for Monite product team to research]
+
+**SALES TEAM POSITIONING:**
+- *Monite's competitive advantages:* [Specific AP/AR strengths to emphasize in sales conversations]
+- *Competitor vulnerabilities:* [Gaps in their AP/AR offering to exploit]
+- *Discovery questions:* [Questions to ask prospects that highlight Monite's strengths]
+
+**MARKET POSITIONING:**
+[Their go-to-market strategy, target customers, and positioning vs Monite's embedded finance approach]
+
+**OBJECTIVE ASSESSMENT:**
+[Balanced view of their strengths and weaknesses relative to Monite, based on factual comparison rather than bias]
+
+IMPORTANT: Base analysis on factual capabilities found in their documentation/website. Clearly distinguish between confirmed features and assumptions. If limited information available, state this explicitly.
+
 
         FORMAT FOR SLACK:
 - Use *bold text* for headers (not **bold**)
 - Add blank lines between sections for spacing
 - Use emoji for threat level: 🔴 HIGH, 🟡 MEDIUM, 💚 LOW
 - Keep it clean and readable in Slack
-
-Remember: Monite wins deals for good reasons. Analyze threats but maintain confidence in our proven advantages.
 
         """
         
