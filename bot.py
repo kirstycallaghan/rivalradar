@@ -318,127 +318,152 @@ def get_monite_context():
     """Get detailed Monite context for comparison"""
     return """MONITE COMPREHENSIVE AP/AR CAPABILITIES - DETAILED TECHNICAL SPECS:
 
+TARGET MARKET & POSITIONING:
+- Primary Focus: Embedded AP/AR automation for B2B SaaS platforms, marketplaces, and neobanks
+- Vertical SaaS: Industry-specific platforms (healthcare, construction, professional services, staffing, etc.)
+- Horizontal SaaS: Cross-industry platforms (marketplaces, payment processors, business tools)
+- Embedded Finance Strategy: White-label AP/AR as a revenue-generating feature for platform partners
+- Implementation: 2-week average integration, transaction-based revenue sharing model
+
 ACCOUNTS PAYABLE (AP) AUTOMATION:
 Core Processing:
 - OCR bill capture: Email forwarding (@bills.monite.com), drag-drop upload, mobile scanning
-- Data extraction: Line items, tax amounts, vendor details, invoice numbers, due dates
-- Duplicate detection: Automated matching against existing bills and payments
-- Coding & categorization: Chart of accounts mapping, tax code assignment, cost center allocation
-- Multi-currency support: 50+ currencies with real-time exchange rates
+- Advanced data extraction: Line items, tax amounts, vendor details, invoice numbers, due dates, PO matching
+- Duplicate detection: Automated matching against existing bills and payments using ML algorithms
+- Smart coding & categorization: Chart of accounts mapping, tax code assignment, cost center allocation
+- Multi-currency support: 50+ currencies with real-time exchange rates and international tax handling
 
 Approval Workflows:
-- Custom multi-step approval chains: Sequential, parallel, conditional routing
-- Approval rules: Amount thresholds, vendor-specific, category-based, GL account triggers
-- Delegation & escalation: Temporary delegates, auto-escalation on timeout
-- Mobile approval: Native mobile apps with push notifications
-- Audit trails: Complete approval history with timestamps and comments
+- Custom multi-step approval chains: Sequential, parallel, conditional routing based on amount/vendor/category
+- Dynamic approval rules: Amount thresholds, vendor-specific rules, GL account triggers, department-based routing
+- Delegation & escalation: Temporary delegates, auto-escalation on timeout, holiday coverage
+- Mobile approval: Native mobile apps with push notifications and offline capability
+- Audit trails: Complete approval history with timestamps, comments, and compliance documentation
 
 Vendor Management:
-- Vendor onboarding: Self-service portal, W-9/tax form collection, bank details verification
-- Vendor database: Contact management, payment terms, preferred payment methods
-- Vendor communications: Automated notifications, payment confirmations
-- Duplicate vendor detection: Fuzzy matching on name, TIN, address
+- Self-service vendor portal: W-9/tax form collection, bank details verification, document upload
+- Comprehensive vendor database: Contact management, payment terms, preferred payment methods, risk scoring
+- Automated vendor communications: Payment notifications, tax form requests, payment confirmations
+- Duplicate vendor detection: Fuzzy matching on name, TIN, address with manual review workflow
+- Vendor performance tracking: Payment history, early payment discounts, relationship scoring
 
 Payment Execution:
-- Payment methods: ACH (same-day, next-day), wire transfers, international wires, check printing
-- Payment scheduling: Future-dated payments, recurring payments, batch processing
-- Payment optimization: Cash flow calendars, early payment discounts
-- Bank integrations: Direct bank feeds, reconciliation automation
-- Payment status tracking: Real-time payment status, failed payment handling
+- Comprehensive payment methods: ACH (same-day, next-day), wire transfers, international wires, check printing, virtual cards
+- Advanced payment scheduling: Future-dated payments, recurring payments, batch processing, cash flow optimization
+- Payment optimization: Early payment discounts, cash flow calendars, payment date recommendations
+- Bank integrations: Direct bank feeds from 1000+ banks, automated reconciliation, multi-account support
+- Payment status tracking: Real-time status updates, failed payment handling, automatic retry logic
 
 ACCOUNTS RECEIVABLE (AR) AUTOMATION:
 Invoice Management:
-- Invoice creation: Template-based, recurring billing, milestone invoicing, project-based
-- Line item management: Product catalogs, tax calculations, discounts, custom fields
-- Invoice customization: Branded templates, custom fields, terms and conditions
-- Multi-currency invoicing: Currency conversion, international tax handling
+- Flexible invoice creation: Template-based, recurring billing, milestone invoicing, project-based, subscription billing
+- Advanced line item management: Product catalogs, tax calculations, multi-tier discounts, custom fields
+- Brand customization: Fully branded templates, custom fields, terms and conditions, logo integration
+- Multi-currency invoicing: Currency conversion, international tax handling, multi-region compliance
 
 Quote & Estimate Management:
-- Quote creation: Template-based quotes, line item management, approval workflows
-- Quote-to-invoice conversion: One-click conversion with change tracking
-- Quote versioning: Multiple versions, comparison views, approval history
-- Expiration management: Auto-expiration, renewal reminders
+- Professional quote creation: Template-based quotes, line item management, approval workflows
+- Seamless quote-to-invoice conversion: One-click conversion with change tracking and version control
+- Quote versioning: Multiple versions, comparison views, approval history, collaborative editing
+- Automated expiration management: Auto-expiration, renewal reminders, follow-up sequences
 
 Payment Collection:
-- Payment links: Embedded in invoices, standalone payment pages, mobile-optimized
-- Payment methods: Credit cards, ACH, bank transfers, digital wallets
-- Partial payments: Automatic allocation, payment plans, installment tracking
-- Payment portals: Customer self-service, payment history, auto-pay setup
+- Embedded payment links: Integrated in invoices, standalone payment pages, mobile-optimized checkout
+- Multiple payment methods: Credit cards, ACH, bank transfers, digital wallets (Apple Pay, Google Pay)
+- Flexible payment options: Partial payments, automatic allocation, payment plans, installment tracking
+- Customer self-service portals: Payment history, auto-pay setup, invoice downloads, dispute management
 
 Customer Management:
-- Customer database: Contact management, billing addresses, payment preferences
-- Credit management: Credit limits, payment terms, risk scoring
-- Customer communications: Automated notifications, payment confirmations, statements
+- Comprehensive customer database: Contact management, billing addresses, payment preferences, credit profiles
+- Advanced credit management: Credit limits, payment terms, risk scoring, automated credit decisions
+- Customer communications: Automated notifications, payment confirmations, statements, custom messaging
 
 Collections & Dunning:
-- Automated dunning: Customizable sequences, escalation rules, multiple channels
-- Collection workflows: Task management, collector assignment, priority scoring
-- Payment reminders: Email, SMS, phone integration, multi-language support
-- Collections reporting: Aging reports, collection effectiveness, DSO tracking
+- Intelligent automated dunning: ML-powered sequences, escalation rules, multi-channel communication
+- Advanced collection workflows: Task management, collector assignment, priority scoring, success tracking
+- Multi-channel payment reminders: Email, SMS, phone integration, multi-language support
+- Collections analytics: Aging reports, collection effectiveness, DSO tracking, predictive analytics
 
 E-INVOICING & COMPLIANCE:
-- Peppol e-invoicing: EU compliance, automated routing, digital signatures
-- Tax compliance: VAT, GST, sales tax calculation across 30+ countries
-- Document standards: UBL, XML, PDF/A-3, CII formats
-- Audit requirements: Immutable records, compliance reporting, archival
+- Peppol e-invoicing: Full EU compliance, automated routing, digital signatures, real-time validation
+- Global tax compliance: VAT, GST, sales tax calculation across 30+ countries with automatic updates
+- Multiple document standards: UBL, XML, PDF/A-3, CII formats with automated format selection
+- Audit & compliance: Immutable records, compliance reporting, archival with legal validity
 
 TECHNICAL ARCHITECTURE:
-REST API:
-- 200+ endpoints covering all AP/AR functionality
-- Webhook system: Real-time notifications for 50+ events
-- Rate limiting: 1000 requests/minute per API key
-- Authentication: OAuth 2.0, API keys with scoping, JWT tokens
-- API versioning: Semantic versioning with backward compatibility
+REST API (200+ endpoints):
+- Complete functionality coverage: All AP/AR operations accessible via API
+- Webhook system: Real-time notifications for 50+ events with guaranteed delivery
+- Rate limiting: 1000 requests/minute per API key with burst capability
+- Authentication: OAuth 2.0, scoped API keys, JWT tokens with role-based access
+- API versioning: Semantic versioning with 18-month backward compatibility guarantee
 
-SDKs & Integration:
-- React SDK: Pre-built components, hooks, TypeScript support
-- JavaScript SDK: Vanilla JS, Node.js support, Promise-based
-- Python SDK: Full API coverage, async support, type hints
-- Webhook handling: Signature verification, retry logic, dead letter queues
+SDKs & Developer Tools:
+- React SDK: Pre-built components, hooks, TypeScript support, theme customization
+- JavaScript SDK: Vanilla JS, Node.js support, Promise-based with async/await
+- Python SDK: Full API coverage, async support, type hints, Django/Flask helpers
+- Webhook handling: Signature verification, automatic retry logic, dead letter queues
 
-UI Components:
-- Embedded iframes: White-label UI, responsive design, mobile-optimized
-- React components: Customizable, theme support, accessibility compliant
-- Hosted pages: Payment pages, invoice portals, vendor onboarding
+Embedded UI Components:
+- White-label iframes: Fully customizable, responsive design, mobile-optimized
+- React component library: 50+ pre-built components, theme support, accessibility compliant
+- Hosted payment pages: Branded checkout, invoice portals, vendor onboarding flows
+- Mobile SDKs: Native iOS/Android components for mobile-first platforms
 
-Data Architecture:
-- Real-time sync: Bi-directional with accounting platforms
-- Data mapping: Flexible field mapping, custom categorization
-- Conflict resolution: Automated and manual conflict handling
-- Data retention: Configurable retention policies, GDPR compliance
+Data Architecture & Integrations:
+- Real-time bi-directional sync: Instant synchronization with accounting platforms
+- Flexible data mapping: Custom field mapping, transformation rules, validation
+- Conflict resolution: Automated and manual conflict handling with audit trails
+- Data retention: Configurable retention policies, GDPR compliance, right to be forgotten
 
-ACCOUNTING INTEGRATIONS:
-Supported Platforms (40+):
-- Enterprise: NetSuite, SAP, Oracle, Microsoft Dynamics
-- SMB: QuickBooks Online/Desktop, Xero, Sage, FreshBooks, Wave
-- Specialized: Zoho Books, Kashoo, Manager, GnuCash
+ACCOUNTING PLATFORM INTEGRATIONS (40+ platforms):
+Enterprise ERPs:
+- NetSuite: Full integration including custom fields, subsidiaries, multi-currency
+- SAP Business One: Complete AP/AR sync with real-time data exchange
+- Oracle NetSuite: Advanced integration with custom workflows and approval chains
+- Microsoft Dynamics: 365 and GP integration with role-based access control
 
-Sync Capabilities:
-- Chart of accounts: Real-time sync, custom mapping, hierarchy support
-- Tax rates: Automated tax code mapping, multi-jurisdiction support
-- Customers/Vendors: Contact sync, payment terms, custom fields
-- Transactions: Invoice sync, payment matching, reconciliation
+SMB Accounting Software:
+- QuickBooks (Online/Desktop): Real-time sync, custom field mapping, multi-company support
+- Xero: Complete integration with bank feeds, custom categories, multi-currency
+- Sage (50cloud, Intacct): Full AP/AR sync with advanced reporting integration
+- FreshBooks: Project-based billing integration with time tracking sync
+
+Specialized Platforms:
+- Zoho Books: Complete integration with CRM data sync
+- Wave Accounting: Small business integration with automated reconciliation
+- Manager: Custom integration for specific use cases
+- Industry-specific ERPs: Construction, healthcare, professional services
 
 COMPLIANCE & SECURITY:
-- SOC 2 Type II certified
-- PCI DSS Level 1 compliant
-- GDPR compliant with data residency options
-- Bank-level encryption (AES-256)
-- Multi-factor authentication
-- Role-based access control
+- SOC 2 Type II certified with annual audits
+- PCI DSS Level 1 compliant for payment processing
+- GDPR compliant with EU data residency options
+- Bank-level encryption (AES-256) for data at rest and in transit
+- Multi-factor authentication with SSO integration
+- Role-based access control with granular permissions
+- Real-time fraud detection and prevention
 
-DEPLOYMENT & IMPLEMENTATION:
-- Cloud-native: AWS/Azure deployment, 99.9% uptime SLA
-- Data centers: EU (Frankfurt), US (Virginia), with data residency options
-- Implementation: 2-week average, dedicated implementation team
-- Support: 24/7 technical support, dedicated customer success manager
-- Monitoring: Real-time system monitoring, automated alerting
+DEPLOYMENT & SCALABILITY:
+- Cloud-native architecture: AWS/Azure deployment with auto-scaling
+- Global data centers: EU (Frankfurt), US (Virginia), Asia-Pacific (Singapore)
+- 99.9% uptime SLA with 24/7 monitoring and incident response
+- Dedicated implementation team: Technical onboarding, custom configuration
+- 24/7 technical support: Dedicated customer success managers for enterprise clients
+- Real-time system monitoring: Automated alerting, performance optimization
 
-PRICING MODEL:
-- Transaction-based pricing: Percentage of payment volume
-- Revenue sharing: Optional for platform partners
-- Usage-based API pricing: Per API call beyond included limits
-- No setup fees, no monthly minimums for basic tier"""
+PRICING & BUSINESS MODEL:
+- Transaction-based pricing: Competitive percentage of payment volume
+- Revenue sharing: Optional for platform partners with transparent fee structure
+- Usage-based API pricing: Generous included limits with per-call overage
+- No setup fees or monthly minimums for basic tier
+- Enterprise pricing: Custom pricing for high-volume clients with dedicated support
+
+COMPETITIVE POSITIONING:
+- Direct competition with: Bill.com, Melio, Mercoa, and other embedded AP/AR platforms
+- Differentiators: Comprehensive feature set, 40+ accounting integrations, 2-week implementation
+- Target customer overlap: Vertical SaaS platforms, horizontal marketplaces, fintech companies
+- Revenue model: Embedded finance approach with transaction-based revenue sharing"""
 
 def generate_analysis(url, analysis_result):
     """Generate competitive analysis using OpenAI"""
@@ -481,20 +506,23 @@ ANALYSIS FRAMEWORK:
 Provide a completely objective analysis with NO bias toward either company. Base ALL conclusions on concrete evidence from the gathered intelligence.
 
 THREAT LEVEL CRITERIA (strictly evidence-based):
-🔴 HIGH THREAT: Direct AP/AR automation competitor with similar functionality AND target market
-- Must have: Bill processing/capture OR invoice management OR payment automation
-- Must have: Clear B2B focus and automation features
-- Examples: Bill.com, Melio, comprehensive AP/AR platforms
+🔴 HIGH THREAT: Direct competitor targeting same market with similar functionality
+- Must have: AP/AR automation features (bill processing, invoice management, payment automation)
+- Must have: B2B embedded finance focus OR targets vertical/horizontal SaaS platforms
+- Must have: Developer-focused integration approach (APIs, SDKs, white-label solutions)
+- Examples: Mercoa, Bill.com (if embedded), Melio (if platform-focused), comprehensive AP/AR platforms
 
-🟡 MEDIUM THREAT: Overlapping functionality but different primary focus OR partial AP/AR features
-- Has some AP/AR features but not comprehensive
-- Different target market but some overlap
-- Examples: Expense management tools with bill pay, accounting software with basic AP
+🟡 MEDIUM THREAT: Overlapping functionality but different primary focus OR partial feature overlap
+- Has some AP/AR features but not comprehensive automation
+- Different target market (direct end-users vs platform partners) but some overlap
+- Adjacent financial software with bill pay or invoicing components
+- Examples: Traditional accounting software with AP features, expense management tools with bill pay
 
 💚 LOW THREAT: Minimal functional overlap OR clearly different market/use case
-- No clear AP/AR automation features
-- Different target market (B2C, different vertical)
-- Basic invoicing without automation
+- No clear AP/AR automation features beyond basic invoicing
+- B2C focus or clearly different vertical with no platform strategy
+- Basic financial tools without automation or platform integration
+- Examples: Simple invoicing tools, consumer payment apps, industry-specific tools without embedded strategy
 
 FORMAT REQUIREMENTS:
 
