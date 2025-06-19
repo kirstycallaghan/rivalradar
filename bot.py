@@ -170,7 +170,7 @@ def analyze_competitor_url(url):
         print("🤖 Sending to AI for analysis...")
         
         # Complete Monite context
-          monite_context = """
+        monite_context = """
 
 MONITE'S DETAILED AP/AR CAPABILITIES FOR ACCURATE COMPARISON:
 
