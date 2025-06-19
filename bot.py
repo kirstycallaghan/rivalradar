@@ -129,8 +129,100 @@ def extract_company_name_smart(title):
         
     return company_name.strip()
 
+def discover_key_pages(base_url, soup):
+    """Discover and analyze key feature/product pages beyond the homepage"""
+    print("🔍 Discovering key pages beyond homepage...")
+    
+    # Common page patterns for B2B SaaS companies
+    key_page_patterns = [
+        '/features', '/feature', '/products', '/product', '/solutions', '/solution',
+        '/capabilities', '/services', '/platform', '/how-it-works',
+        '/accounts-payable', '/accounts-receivable', '/ap', '/ar', 
+        '/bill-pay', '/invoicing', '/payments', '/automation',
+        '/approval-workflow', '/workflows', '/integrations'
+    ]
+    
+    # Find navigation links
+    discovered_pages = []
+    
+    # Method 1: Look for navigation menu links
+    nav_links = soup.find_all('nav') + soup.find_all('div', class_=['nav', 'menu', 'header', 'navigation'])
+    for nav in nav_links:
+        links = nav.find_all('a', href=True)
+        for link in links:
+            href = link['href']
+            text = link.get_text().lower().strip()
+            
+            # Check if link contains key terms
+            if any(pattern in href.lower() for pattern in key_page_patterns) or \
+               any(keyword in text for keyword in ['features', 'products', 'solutions', 'capabilities', 
+                                                 'accounts payable', 'accounts receivable', 'bill pay', 
+                                                 'invoicing', 'payments', 'automation', 'workflow']):
+                
+                # Convert to full URL
+                if href.startswith('/'):
+                    full_url = base_url.rstrip('/') + href
+                elif href.startswith('http'):
+                    full_url = href
+                else:
+                    continue
+                
+                if full_url not in discovered_pages and base_url in full_url:
+                    discovered_pages.append(full_url)
+    
+    # Method 2: Try common page patterns directly
+    for pattern in key_page_patterns:
+        potential_url = base_url.rstrip('/') + pattern
+        discovered_pages.append(potential_url)
+    
+    # Remove duplicates and limit to top 10 most promising pages
+    discovered_pages = list(dict.fromkeys(discovered_pages))[:10]
+    
+    print(f"🎯 Found {len(discovered_pages)} potential key pages to analyze")
+    return discovered_pages
+
+def scrape_key_pages(discovered_pages):
+    """Scrape content from discovered key pages"""
+    print("📚 Analyzing key pages for detailed capabilities...")
+    
+    aggregated_content = ""
+    successful_pages = []
+    
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    }
+    
+    for page_url in discovered_pages:
+        try:
+            print(f"📖 Checking: {page_url}")
+            response = requests.get(page_url, headers=headers, timeout=10)
+            
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.content, 'html.parser')
+                
+                # Get page title and content
+                page_title = soup.find('title').text if soup.find('title') else ""
+                page_content = soup.get_text()[:1500]  # Limit per page
+                
+                # Only include if it has substantial content
+                if len(page_content.strip()) > 100:
+                    aggregated_content += f"\n\nPAGE: {page_title} ({page_url})\nCONTENT: {page_content}\n"
+                    successful_pages.append(page_url)
+                    print(f"✅ Successfully analyzed: {page_url}")
+                else:
+                    print(f"⚠️ Minimal content found: {page_url}")
+            else:
+                print(f"❌ Failed to access: {page_url} (Status: {response.status_code})")
+                
+        except Exception as e:
+            print(f"❌ Error accessing {page_url}: {e}")
+            continue
+    
+    print(f"📊 Successfully analyzed {len(successful_pages)} key pages")
+    return aggregated_content, successful_pages
+
 def analyze_competitor_url(url):
-    """Analyze a competitor URL with improved scraping and threat detection"""
+    """Enhanced competitor analysis with key page discovery"""
     print(f"🔍 Analyzing: {url}")
     
     try:
@@ -144,62 +236,45 @@ def analyze_competitor_url(url):
             'Upgrade-Insecure-Requests': '1',
         }
         
-        # Try multiple scraping approaches
-        response = None
-        text_content = ""
-        title = "No title"
-        
-        # Attempt 1: Direct scraping
-        try:
-            response = requests.get(url, headers=headers, timeout=15)
-            if response.status_code == 200:
-                soup = BeautifulSoup(response.content, 'html.parser')
-                title = soup.find('title').text if soup.find('title') else "No title"
-                text_content = soup.get_text()[:4000]  # Increased content limit
-                print(f"📄 Page title: {title}")
-                print("✅ Successfully grabbed page content")
-            else:
-                print(f"⚠️ HTTP {response.status_code} - trying alternative approach")
-                raise requests.RequestException("Non-200 status code")
-        except:
-            print("❌ Direct scraping failed, trying backup approach...")
+        # Step 1: Scrape homepage
+        response = requests.get(url, headers=headers, timeout=15)
+        if response.status_code != 200:
+            raise requests.RequestException(f"HTTP {response.status_code}")
             
-        # Attempt 2: If direct scraping fails, search for company info
-        if len(text_content.strip()) < 100:  # Very little content found
-            print("🔍 Content too limited, searching for company information...")
-            company_name = extract_company_name_from_url(url)
-            
-            # Search for company information as backup
-            backup_content = search_company_info(company_name)
-            if backup_content:
-                text_content = backup_content
-                title = f"{company_name} - Company Information"
-                print("✅ Found backup company information")
-            else:
-                print("❌ Backup search also failed")
+        soup = BeautifulSoup(response.content, 'html.parser')
+        title = soup.find('title').text if soup.find('title') else "No title"
+        homepage_content = soup.get_text()[:2000]
         
-        company_name = extract_company_name_smart(title) if title != "No title" else extract_company_name_from_url(url)
+        print(f"📄 Page title: {title}")
+        print("✅ Successfully grabbed homepage content")
+        
+        # Step 2: Discover and scrape key pages
+        discovered_pages = discover_key_pages(url, soup)
+        key_pages_content, successful_pages = scrape_key_pages(discovered_pages)
+        
+        # Combine homepage and key pages content
+        full_content = f"HOMEPAGE CONTENT:\n{homepage_content}\n\nKEY PAGES CONTENT:{key_pages_content}"
+        
+        company_name = extract_company_name_smart(title)
         print(f"🏢 Detected company name: {company_name}")
         
         # Search for recent news
         recent_news = search_recent_news(company_name)
         
-        # Look for API documentation with multiple attempts
+        # Look for API documentation
+        api_links = find_api_docs(url, soup)
         api_analysis = ""
-        if response and response.status_code == 200:
-            soup = BeautifulSoup(response.content, 'html.parser')
-            api_links = find_api_docs(url, soup)
-            
-            if api_links:
-                print(f"🎯 Found {len(api_links)} potential API doc links")
-                for api_url in api_links:
-                    api_data = analyze_api_docs(api_url)
-                    if api_data and len(api_data['content']) > 500:
-                        api_analysis += f"\n\nAPI DOCS ANALYZED: {api_data['title']}\nURL: {api_data['url']}\nContent: {api_data['content'][:1500]}"
-                        break
+        
+        if api_links:
+            print(f"🎯 Found {len(api_links)} potential API doc links")
+            for api_url in api_links:
+                api_data = analyze_api_docs(api_url)
+                if api_data and len(api_data['content']) > 500:
+                    api_analysis += f"\n\nAPI DOCS ANALYZED: {api_data['title']}\nURL: {api_data['url']}\nContent: {api_data['content'][:1500]}"
+                    break
         
         if not api_analysis:
-            print("❌ No substantial API documentation found")
+            print("❌ No API documentation found - this is competitive intelligence too!")
         
         print("🤖 Sending to AI for analysis...")
         
@@ -251,80 +326,76 @@ EMBEDDED FINANCE POSITIONING:
 - Deployment: Cloud-native, EU and US data centers
 """
         
-        # Enhanced prompt with aggressive threat detection
+        # Enhanced prompt with comprehensive analysis
         prompt = f"""
-You are analyzing a competitor to Monite's AP/AR automation platform. Be AGGRESSIVE in threat assessment - better to overestimate than underestimate threats.
+You are analyzing a competitor to Monite's AP/AR automation platform. You now have comprehensive data from their homepage AND key feature pages.
 
 COMPETITOR DATA:
 URL: {url}
 Title: {title}
-Content: {text_content}
+Comprehensive Content (Homepage + Key Pages): {full_content}
+Pages Successfully Analyzed: {len(successful_pages)} pages including {', '.join(successful_pages[:3])}{'...' if len(successful_pages) > 3 else ''}
 
 RECENT NEWS (Last 3 months):
 {recent_news}
 
 API DOCUMENTATION:
-{api_analysis if api_analysis else "No API docs found - analysis limited to website content"}
+{api_analysis if api_analysis else "No public API documentation found - competitive advantage for their developer experience vs competitors with open APIs"}
 
 {monite_context}
 
 AGGRESSIVE THREAT ASSESSMENT FRAMEWORK:
 
 **AUTOMATIC HIGH THREAT INDICATORS:**
-- ANY mention of: "accounts payable", "bill pay", "vendor payments", "AP automation", "invoice processing"
-- ANY mention of: "accounts receivable", "invoicing", "payment collection", "AR automation" 
+- ANY mention of: "accounts payable", "bill pay", "vendor payments", "AP automation", "invoice processing", "approval workflow"
+- ANY mention of: "accounts receivable", "invoicing", "payment collection", "AR automation", "dunning"
 - Target market includes: "small business", "SMB", "B2B payments", "business payments"
-- Significant funding: Series A+ or $10M+ raised
-- Established player with clear AP/AR focus
-
-**HIGH THREAT = Direct AP or AR functionality + any business traction**
-**MEDIUM THREAT = Adjacent financial services + expansion potential**  
-**LOW THREAT = Completely different industry**
+- Clear business traction or established presence
 
 Analyze in this format:
 
 *THREAT LEVEL:* 🔴 HIGH / 🟡 MEDIUM / 💚 LOW
 
 *THREAT JUSTIFICATION:*
-[Be aggressive - if they do ANYTHING related to AP/AR, explain why it's a threat. Look for keywords like bill pay, invoicing, vendor payments, business payments, accounts payable, etc.]
+[Based on comprehensive analysis of their homepage AND feature pages - be aggressive in assessment]
 
 *RECENT DEVELOPMENTS:*
 [Key insights from recent news - funding, product launches, partnerships, market expansion]
 
-*AP/AR CAPABILITY ANALYSIS:*
+*COMPREHENSIVE AP/AR CAPABILITY ANALYSIS:*
 **Accounts Payable:**
-- Bill capture & processing: [Their capabilities vs Monite's OCR + workflow engine]
-- Approval workflows: [Their workflow features vs Monite's custom approval chains]  
-- Payment execution: [Payment methods vs Monite's ACH/wire/international options]
+- Bill capture & processing: [Their specific capabilities found on their pages vs Monite's OCR + workflow engine]
+- Approval workflows: [Detailed comparison based on their workflow pages vs Monite's custom approval chains]
+- Payment execution: [Their payment methods vs Monite's ACH/wire/international options]
 - Vendor management: [Their vendor features vs Monite's vendor portal]
 
 **Accounts Receivable:**
-- Invoice creation: [Their invoicing vs Monite's template + recurring billing]
-- Payment collection: [Payment methods vs Monite's payment links + multi-method support]
+- Invoice creation: [Their invoicing capabilities vs Monite's template + recurring billing]
+- Payment collection: [Their collection methods vs Monite's payment links + multi-method support]
 - Customer management: [Their CRM features vs Monite's credit limits + terms management]
-- Collections: [Dunning processes vs Monite's automated reminder sequences]
+- Collections: [Their dunning processes vs Monite's automated reminder sequences]
 
 *API & INTEGRATION COMPARISON:*
-[If API docs available: endpoint comparison, authentication methods, webhook support, SDK availability vs Monite's 200+ endpoints + React/JS/Python SDKs]
+[Compare their API offering (or lack thereof) vs Monite's 200+ endpoints + React/JS/Python SDKs. Note: Lack of public APIs can be competitive intelligence]
 
 *ACCOUNTING PLATFORM INTEGRATIONS:*
-[Their integration count/quality vs Monite's 40+ platforms with bi-directional sync]
+[Their integration capabilities vs Monite's 40+ platforms with bi-directional sync]
 
 *PRODUCT TEAM ANALYSIS:*
-- Feature gaps in Monite: [Specific AP/AR features they offer that Monite lacks]
-- Technical architecture differences: [API design, integration patterns, scalability approaches]
-- Investigation priorities: [Specific areas for Monite product team to research]
+- Feature gaps in Monite: [Specific AP/AR features they have that Monite might lack]
+- Technical architecture differences: [Based on their technical approach vs Monite's architecture]
+- Investigation priorities: [Specific areas for Monite team to research further]
 
 *SALES TEAM POSITIONING:*
-- Monite's competitive advantages: [Specific AP/AR strengths to emphasize in sales conversations]
-- Competitor vulnerabilities: [Gaps in their AP/AR offering to exploit]
+- Monite's competitive advantages: [Clear advantages over this competitor]
+- Competitor vulnerabilities: [Gaps in their offering to exploit]
 - Discovery questions: [Questions to ask prospects that highlight Monite's strengths]
 
 *MARKET POSITIONING:*
-[Their go-to-market strategy, target customers, and positioning vs Monite's embedded finance approach]
+[Their positioning and target market vs Monite's embedded finance approach]
 
 *OBJECTIVE ASSESSMENT:*
-[Balanced view but err on the side of caution - if uncertain, lean toward higher threat level]
+[Balanced assessment based on comprehensive page analysis]
 
 FORMAT FOR SLACK:
 - Use *bold text* for headers (not **bold**)
@@ -332,8 +403,25 @@ FORMAT FOR SLACK:
 - Use emoji for threat level: 🔴 HIGH, 🟡 MEDIUM, 💚 LOW
 - Keep it clean and readable in Slack
 
-CRITICAL: If content is limited due to scraping issues, state this clearly but still assess threat based on available information. Don't default to LOW threat just because of technical limitations.
+IMPORTANT: You now have comprehensive data from multiple pages - use this to provide detailed, accurate competitive analysis.
 """
+        
+        # Call OpenAI
+        client = OpenAI(api_key=OPENAI_API_KEY)
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=1200
+        )
+        
+        analysis = response.choices[0].message.content
+        print("🎯 AI Analysis complete!")
+        
+        return analysis
+        
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        return f"❌ Analysis failed: {str(e)}"
         
         # Call OpenAI
         client = OpenAI(api_key=OPENAI_API_KEY)
