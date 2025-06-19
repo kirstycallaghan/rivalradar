@@ -6,12 +6,15 @@ import re
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 import time
+import json
 
 # Initialize Slack app
 app = App(token=os.environ.get("SLACK_BOT_TOKEN"))
 
-# Your OpenAI API key
+# API keys
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+SERP_API_KEY = os.environ.get("SERP_API_KEY")  # Optional: for Google search API
+BRAVE_API_KEY = os.environ.get("BRAVE_API_KEY")  # Optional: for Brave search API
 
 def simple_request(url):
     """Simple, reliable request function"""
@@ -32,6 +35,151 @@ def simple_request(url):
         print(f"❌ Request failed: {e}")
         return None
 
+def search_with_serp_api(company_name):
+    """Use SerpAPI to search for competitor intelligence"""
+    if not SERP_API_KEY:
+        return None
+        
+    try:
+        search_queries = [
+            f"{company_name} accounts payable AP automation features",
+            f"{company_name} bill pay vendor payments platform",
+            f"{company_name} funding valuation company overview"
+        ]
+        
+        all_results = []
+        
+        for query in search_queries:
+            url = "https://serpapi.com/search"
+            params = {
+                'api_key': SERP_API_KEY,
+                'q': query,
+                'engine': 'google',
+                'num': 5
+            }
+            
+            response = requests.get(url, params=params)
+            if response.status_code == 200:
+                data = response.json()
+                organic_results = data.get('organic_results', [])
+                
+                for result in organic_results:
+                    title = result.get('title', '')
+                    snippet = result.get('snippet', '')
+                    link = result.get('link', '')
+                    all_results.append(f"• {title}: {snippet} ({link})")
+            
+            time.sleep(1)  # Rate limiting
+        
+        if all_results:
+            return "\n".join(all_results[:10])  # Top 10 results
+            
+    except Exception as e:
+        print(f"❌ SerpAPI search failed: {e}")
+        return None
+
+def search_with_brave_api(company_name):
+    """Use Brave Search API for competitor intelligence"""
+    if not BRAVE_API_KEY:
+        return None
+        
+    try:
+        search_queries = [
+            f"{company_name} AP automation bill pay features",
+            f"{company_name} company funding business model"
+        ]
+        
+        all_results = []
+        
+        for query in search_queries:
+            url = "https://api.search.brave.com/res/v1/web/search"
+            headers = {
+                'Accept': 'application/json',
+                'X-Subscription-Token': BRAVE_API_KEY
+            }
+            params = {
+                'q': query,
+                'count': 5
+            }
+            
+            response = requests.get(url, headers=headers, params=params)
+            if response.status_code == 200:
+                data = response.json()
+                web_results = data.get('web', {}).get('results', [])
+                
+                for result in web_results:
+                    title = result.get('title', '')
+                    description = result.get('description', '')
+                    url = result.get('url', '')
+                    all_results.append(f"• {title}: {description}")
+            
+            time.sleep(1)  # Rate limiting
+        
+        if all_results:
+            return "\n".join(all_results[:8])
+            
+    except Exception as e:
+        print(f"❌ Brave API search failed: {e}")
+        return None
+
+def gather_competitor_intelligence(company_name, failed_url):
+    """Gather competitive intelligence when direct scraping fails"""
+    print(f"🕵️ Gathering intelligence on {company_name} using alternative methods...")
+    
+    intelligence = []
+    
+    # Method 1: Try search APIs
+    serp_results = search_with_serp_api(company_name)
+    if serp_results:
+        intelligence.append(f"SEARCH INTELLIGENCE:\n{serp_results}")
+    
+    brave_results = search_with_brave_api(company_name)
+    if brave_results:
+        intelligence.append(f"BRAVE SEARCH RESULTS:\n{brave_results}")
+    
+    # Method 2: Try common alternative pages
+    alternative_pages = [
+        f"https://{company_name.lower()}.com/about",
+        f"https://{company_name.lower()}.com/features", 
+        f"https://{company_name.lower()}.com/pricing",
+        f"https://www.{company_name.lower()}.com",
+        f"https://{company_name.lower()}.io"
+    ]
+    
+    for alt_url in alternative_pages:
+        if alt_url != failed_url:  # Don't retry the same URL
+            response = simple_request(alt_url)
+            if response and response.status_code == 200:
+                try:
+                    soup = BeautifulSoup(response.content, 'html.parser')
+                    content = soup.get_text()[:1500]
+                    if len(content.strip()) > 200:
+                        intelligence.append(f"FROM {alt_url}:\n{content}")
+                        break  # Found good content, stop searching
+                except:
+                    continue
+    
+    # Method 3: Try to find LinkedIn company page
+    linkedin_search_url = f"https://www.linkedin.com/company/{company_name.lower()}"
+    response = simple_request(linkedin_search_url)
+    if response and response.status_code == 200:
+        try:
+            soup = BeautifulSoup(response.content, 'html.parser')
+            # Look for company description
+            desc_elements = soup.find_all(['p', 'div'], class_=['break-words', 'description'])
+            for elem in desc_elements:
+                text = elem.get_text().strip()
+                if len(text) > 100 and company_name.lower() in text.lower():
+                    intelligence.append(f"LINKEDIN COMPANY INFO:\n{text[:800]}")
+                    break
+        except:
+            pass
+    
+    if intelligence:
+        return "\n\n".join(intelligence)
+    else:
+        return f"Could not gather detailed intelligence on {company_name}. Manual research recommended."
+
 def extract_company_name_from_url(url):
     """Extract company name from URL"""
     try:
@@ -46,7 +194,6 @@ def extract_company_name_smart(title):
     if not title or title == "No title":
         return "Unknown Company"
         
-    # Handle common title patterns
     if '|' in title:
         parts = [part.strip() for part in title.split('|')]
         company_name = parts[0] if len(parts[0].split()) <= 3 else parts[-1]
@@ -59,24 +206,20 @@ def extract_company_name_smart(title):
         
     return company_name.strip()
 
-def analyze_competitor_simple(url):
-    """Simple competitor analysis without overthinking"""
+def analyze_competitor_intelligent(url):
+    """Intelligent competitor analysis with real-time intelligence gathering"""
     print(f"🔍 Analyzing: {url}")
     
     company_name = extract_company_name_from_url(url)
     
-    # Try basic request first
+    # Try direct scraping first
     response = simple_request(url)
     
     if response and response.status_code == 200:
         try:
             soup = BeautifulSoup(response.content, 'html.parser')
             title = soup.find('title').text if soup.find('title') else "No title"
-            
-            # Get main content
             content = soup.get_text()
-            
-            # Clean up content
             content = ' '.join(content.split())[:3000]
             
             if len(content.strip()) > 100:
@@ -87,62 +230,38 @@ def analyze_competitor_simple(url):
                     'title': title,
                     'content': content,
                     'company_name': company_name,
-                    'status': f"Successfully analyzed {url}"
+                    'status': f"Successfully analyzed {url}",
+                    'method': 'direct_scraping'
                 }
         except Exception as e:
             print(f"❌ Error parsing content: {e}")
     
-    # If we get here, something failed
-    if response:
-        status_msg = f"Got HTTP {response.status_code} from {url}"
-        if response.status_code == 403:
-            status_msg += " (Forbidden - try manual research)"
-        elif response.status_code == 404:
-            status_msg += " (Not Found - check URL)"
-        elif response.status_code == 500:
-            status_msg += " (Server Error - site may be down)"
+    # Direct scraping failed - use intelligent fallback
+    print(f"🚫 Direct scraping failed for {company_name}, switching to intelligence gathering...")
+    
+    intelligence = gather_competitor_intelligence(company_name, url)
+    
+    if intelligence and "Could not gather" not in intelligence:
+        return {
+            'success': True,
+            'title': f"{company_name} - Intelligence Gathered",
+            'content': intelligence,
+            'company_name': company_name,
+            'status': f"Gathered intelligence for {company_name} using alternative methods",
+            'method': 'intelligence_gathering'
+        }
     else:
-        status_msg = f"Could not connect to {url}"
-    
-    return {
-        'success': False,
-        'title': f"{company_name} - Limited Access",
-        'content': f"Could not fully analyze {url}. {status_msg}. Based on the domain, this appears to be {company_name}. Manual research recommended: check their LinkedIn, about page, or Google '{company_name} features' for competitive intelligence.",
-        'company_name': company_name,
-        'status': status_msg
-    }
+        # Final fallback
+        return {
+            'success': False,
+            'title': f"{company_name} - Limited Access",
+            'content': f"Could not analyze {url} directly and intelligence gathering was limited. {company_name} may be blocking automated access. Manual research recommended: check LinkedIn company page, Crunchbase profile, or Google '{company_name} AP automation features' for competitive intelligence.",
+            'company_name': company_name,
+            'status': f"Analysis blocked - manual research needed",
+            'method': 'failed'
+        }
 
-def search_company_news_simple(company_name):
-    """Simple news search without Google scraping"""
-    print(f"📰 Looking for news about {company_name}...")
-    
-    # Try to find company blog/news
-    possible_domains = [f"{company_name.lower()}.com", f"{company_name.lower()}.io"]
-    news_paths = ["/blog", "/news", "/press"]
-    
-    for domain in possible_domains:
-        for path in news_paths:
-            try:
-                news_url = f"https://{domain}{path}"
-                response = simple_request(news_url)
-                if response and response.status_code == 200:
-                    soup = BeautifulSoup(response.content, 'html.parser')
-                    # Look for recent posts
-                    articles = soup.find_all(['article', 'h2', 'h3'])[:3]
-                    if articles:
-                        news_items = []
-                        for article in articles:
-                            text = article.get_text().strip()[:100]
-                            if text and len(text) > 20:
-                                news_items.append(f"• {text}")
-                        if news_items:
-                            return "\n".join(news_items)
-            except:
-                continue
-    
-    return "No recent news found"
-
-def generate_analysis(url, analysis_result, news):
+def generate_analysis(url, analysis_result):
     """Generate competitive analysis using OpenAI"""
     
     monite_context = """
@@ -163,49 +282,61 @@ KEY CAPABILITIES:
     content = analysis_result['content']
     company_name = analysis_result['company_name']
     status = analysis_result['status']
+    method = analysis_result['method']
+    
+    data_quality_note = {
+        'direct_scraping': '✅ FULL DATA: Complete website analysis',
+        'intelligence_gathering': '🔍 GATHERED INTELLIGENCE: Using search APIs and alternative sources',
+        'failed': '⚠️ LIMITED DATA: Analysis blocked, manual research needed'
+    }.get(method, '❓ UNKNOWN DATA SOURCE')
     
     prompt = f"""
 Analyze this potential competitor to Monite's AP/AR automation platform.
 
 COMPETITOR: {company_name}
 URL: {url}
-ANALYSIS STATUS: {status}
-PAGE TITLE: {title}
+DATA SOURCE: {data_quality_note}
+ANALYSIS METHOD: {method}
+STATUS: {status}
 
-WEBSITE CONTENT:
+INTELLIGENCE GATHERED:
 {content}
 
-RECENT NEWS:
-{news}
-
 {monite_context}
+
+ANALYSIS INSTRUCTIONS:
+- If method is 'direct_scraping': Provide full analysis based on website content
+- If method is 'intelligence_gathering': Analyze based on search results and alternative sources  
+- If method is 'failed': Focus on what we can infer from domain/company name and recommend manual research
+- Be aggressive in threat assessment when AP/AR keywords are detected in any content
 
 Please provide analysis in this format:
 
 *THREAT LEVEL:* 🔴 HIGH / 🟡 MEDIUM / 💚 LOW
 
+*DATA SOURCE:* {data_quality_note}
+
 *QUICK ASSESSMENT:*
-[2-3 sentences on threat level and why]
+[2-3 sentences on threat level and reasoning based on available intelligence]
 
 *KEY FINDINGS:*
-[What we learned about their capabilities]
+[What we learned about their capabilities from available sources]
 
 *COMPETITIVE COMPARISON:*
-**Their Strengths:** [vs Monite]
-**Their Weaknesses:** [vs Monite]  
-**Monite Advantages:** [Clear differentiators]
+**Their Potential Strengths:** [Based on gathered intelligence]
+**Gaps/Unknowns:** [What we couldn't determine]  
+**Monite Advantages:** [Clear differentiators based on available info]
 
 *RECOMMENDED ACTIONS:*
-- [For Product Team]
-- [For Sales Team]
-- [For further research]
+- **For Product Team:** [Based on competitive intelligence gathered]
+- **For Sales Team:** [Positioning based on available info]
+- **For Research:** [Specific manual research steps needed]
 
-GUIDELINES:
-- HIGH threat: Direct AP/AR competitor with strong capabilities
-- MEDIUM threat: Related business software with some overlap
-- LOW threat: Different market or limited capabilities
-- Be concise and actionable
-- If analysis was limited, focus on what we can reasonably infer and next steps
+THREAT ASSESSMENT GUIDELINES:
+- HIGH: Clear AP/AR competitor with significant capabilities/funding
+- MEDIUM: Business software with some AP/AR overlap or blocked analysis of likely competitor  
+- LOW: Different market focus or connection issues suggest minimal threat
+- Use intelligence gathered to make informed assessment, not just guess
 """
     
     try:
@@ -213,7 +344,7 @@ GUIDELINES:
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=800
+            max_tokens=900
         )
         
         return response.choices[0].message.content
@@ -222,18 +353,15 @@ GUIDELINES:
         return f"❌ AI analysis failed: {str(e)}\n\nManual analysis needed for {company_name} at {url}"
 
 def analyze_competitor_url(url):
-    """Main function to analyze competitor URL"""
-    print(f"🚨 Starting RivalRadar analysis: {url}")
+    """Main function to analyze competitor URL with intelligent fallbacks"""
+    print(f"🚨 Starting intelligent RivalRadar analysis: {url}")
     
     try:
-        # Analyze the website
-        analysis_result = analyze_competitor_simple(url)
-        
-        # Search for news
-        news = search_company_news_simple(analysis_result['company_name'])
+        # Analyze the website with intelligent fallbacks
+        analysis_result = analyze_competitor_intelligent(url)
         
         # Generate AI analysis
-        analysis = generate_analysis(url, analysis_result, news)
+        analysis = generate_analysis(url, analysis_result)
         
         print("✅ Analysis complete!")
         return analysis
@@ -251,13 +379,8 @@ def extract_urls_from_text(text):
 def handle_reaction_added(event, say):
     """Handle when someone adds a reaction to trigger analysis"""
     
-    print(f"🔍 Reaction detected: {event['reaction']}")
-    
     if event["reaction"] == "satellite_antenna":
-        print("✅ Satellite antenna reaction detected!")
-        
         try:
-            # Get the message that was reacted to
             result = app.client.conversations_history(
                 channel=event["item"]["channel"],
                 latest=event["item"]["ts"],
@@ -268,30 +391,24 @@ def handle_reaction_added(event, say):
             if result["messages"]:
                 message = result["messages"][0]
                 message_text = message.get("text", "")
-                
-                # Look for URLs in the message
                 urls = extract_urls_from_text(message_text)
                 
                 if urls:
-                    # Add eyes reaction to show we're processing
                     app.client.reactions_add(
                         channel=event["item"]["channel"],
                         timestamp=event["item"]["ts"],
                         name="eyes"
                     )
                     
-                    # Analyze the first URL
                     url = urls[0]
                     analysis = analyze_competitor_url(url)
                     
-                    # Post analysis in thread
                     say(
                         text=f"🚨 *RivalRadar Analysis*\n\n{analysis}",
                         thread_ts=event["item"]["ts"],
                         channel=event["item"]["channel"]
                     )
                     
-                    # Remove eyes reaction and add checkmark
                     app.client.reactions_remove(
                         channel=event["item"]["channel"],
                         timestamp=event["item"]["ts"],
@@ -304,13 +421,12 @@ def handle_reaction_added(event, say):
                     )
                 else:
                     say(
-                        text="📡 RivalRadar triggered but no URLs found in this message!",
+                        text="📡 RivalRadar triggered but no URLs found!",
                         thread_ts=event["item"]["ts"],
                         channel=event["item"]["channel"]
                     )
                     
         except Exception as e:
-            print(f"❌ Error handling reaction: {e}")
             say(
                 text=f"❌ RivalRadar error: {str(e)}",
                 thread_ts=event["item"]["ts"],
@@ -319,38 +435,49 @@ def handle_reaction_added(event, say):
 
 @app.command("/analyze")
 def analyze_command(ack, respond, command):
-    """Direct analysis command for testing"""
     ack()
     url = command['text'].strip()
     if url:
-        try:
-            analysis = analyze_competitor_url(url)
-            respond(f"🚨 *RivalRadar Analysis*\n\n{analysis}")
-        except Exception as e:
-            respond(f"❌ Analysis failed: {str(e)}")
+        analysis = analyze_competitor_url(url)
+        respond(f"🚨 *RivalRadar Analysis*\n\n{analysis}")
     else:
         respond("Please provide a URL: `/analyze https://competitor.com`")
 
 @app.command("/rivalradar")
 def health_check(ack, respond):
-    """Health check command"""
     ack()
-    respond("🚨 RivalRadar is online! React with 📡 to any URL or use `/analyze <url>`")
+    available_apis = []
+    if SERP_API_KEY:
+        available_apis.append("SerpAPI")
+    if BRAVE_API_KEY:
+        available_apis.append("Brave Search")
+    
+    api_status = f"Search APIs: {', '.join(available_apis)}" if available_apis else "No search APIs configured"
+    respond(f"🚨 RivalRadar is online!\n{api_status}\nReact with 📡 to any URL or use `/analyze <url>`")
 
 if __name__ == "__main__":
-    print("🚨 Starting RivalRadar...")
+    print("🚨 Starting Intelligent RivalRadar...")
     
-    # Check environment variables
     required_vars = ["SLACK_BOT_TOKEN", "SLACK_APP_TOKEN", "OPENAI_API_KEY"]
+    optional_vars = ["SERP_API_KEY", "BRAVE_API_KEY"]
+    
     missing = [var for var in required_vars if not os.environ.get(var)]
     
     if missing:
-        print(f"❌ Missing environment variables: {', '.join(missing)}")
+        print(f"❌ Missing required environment variables: {', '.join(missing)}")
         exit(1)
+    
+    # Check optional APIs
+    available_search_apis = [var for var in optional_vars if os.environ.get(var)]
+    if available_search_apis:
+        print(f"✅ Search APIs available: {', '.join(available_search_apis)}")
+    else:
+        print("⚠️ No search APIs configured - intelligence gathering will be limited")
+        print("Consider adding SERP_API_KEY or BRAVE_API_KEY for enhanced analysis")
     
     try:
         handler = SocketModeHandler(app, os.environ.get("SLACK_APP_TOKEN"))
         handler.start()
-        print("✅ RivalRadar ready! React with 📡 to any URL to trigger analysis!")
+        print("✅ Intelligent RivalRadar ready!")
     except Exception as e:
         print(f"❌ Failed to start: {e}")
