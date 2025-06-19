@@ -6,7 +6,10 @@ import re
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 
+# Initialize Slack app
 app = App(token=os.environ.get("SLACK_BOT_TOKEN"))
+
+# Your OpenAI API key
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
 def search_recent_news(company_name):
@@ -96,38 +99,35 @@ def analyze_api_docs(api_url):
 
 def extract_company_name_smart(title):
     """Extract company name from page title"""
-    def extract_company_name_smart(title):
-        # Common patterns for company names in titles
-        if '|' in title:
-            parts = [part.strip() for part in title.split('|')]
-            # Look for the part that's likely a company name (first part is usually company)
-            company_name = parts[0] if len(parts[0].split()) <= 3 else parts[-1]
-        elif '-' in title:
-            parts = [part.strip() for part in title.split('-')]
-            # Take first part, but if it's too long, take the shortest
-            if len(parts[0].split()) <= 3:
-                company_name = parts[0]
-            else:
-                company_name = min(parts, key=len)
+    # Common patterns for company names in titles
+    if '|' in title:
+        parts = [part.strip() for part in title.split('|')]
+        # Look for the part that's likely a company name (first part is usually company)
+        company_name = parts[0] if len(parts[0].split()) <= 3 else parts[-1]
+    elif '-' in title:
+        parts = [part.strip() for part in title.split('-')]
+        # Take first part, but if it's too long, take the shortest
+        if len(parts[0].split()) <= 3:
+            company_name = parts[0]
         else:
-            # Try to extract first meaningful word
-            words = title.split()
-            company_name = next((word for word in words if word[0].isupper() and len(word) > 2), words[0] if words else title)
-        
-        # Clean up common words that aren't company names
-        common_words = ['the', 'ai', 'api', 'app', 'web', 'new', 'best', 'top', 'powered']
-        if company_name.lower() in common_words and '|' in title:
-            # If we got a common word, try the last part instead
-            parts = [part.strip() for part in title.split('|')]
-            company_name = parts[-1] if len(parts) > 1 else company_name
-        elif company_name.lower() in common_words and '-' in title:
-            # For dash-separated, try the first real word
-            words = title.split('-')[0].strip().split()
-            company_name = words[0] if words else company_name
-            
-        return company_name.strip()
+            company_name = min(parts, key=len)
+    else:
+        # Try to extract first meaningful word
+        words = title.split()
+        company_name = next((word for word in words if word[0].isupper() and len(word) > 2), words[0] if words else title)
     
-    return extract_company_name_smart(title)
+    # Clean up common words that aren't company names
+    common_words = ['the', 'ai', 'api', 'app', 'web', 'new', 'best', 'top', 'powered']
+    if company_name.lower() in common_words and '|' in title:
+        # If we got a common word, try the last part instead
+        parts = [part.strip() for part in title.split('|')]
+        company_name = parts[-1] if len(parts) > 1 else company_name
+    elif company_name.lower() in common_words and '-' in title:
+        # For dash-separated, try the first real word
+        words = title.split('-')[0].strip().split()
+        company_name = words[0] if words else company_name
+        
+    return company_name.strip()
 
 def analyze_competitor_url(url):
     """Analyze a competitor URL and generate intelligence"""
@@ -169,9 +169,8 @@ def analyze_competitor_url(url):
         
         print("🤖 Sending to AI for analysis...")
         
-        # Complete Monite context
+        # Complete Monite context with detailed AP/AR capabilities
         monite_context = """
-
 MONITE'S DETAILED AP/AR CAPABILITIES FOR ACCURATE COMPARISON:
 
 ACCOUNTS PAYABLE (AP) FUNCTIONALITY:
@@ -217,8 +216,9 @@ EMBEDDED FINANCE POSITIONING:
 - Revenue model: Transaction-based pricing, revenue sharing options
 - Deployment: Cloud-native, EU and US data centers
 """
-
-prompt = f"""
+        
+        # Enhanced prompt for objective, AP/AR-focused analysis
+        prompt = f"""
 You are analyzing a competitor to Monite's AP/AR automation platform. Provide objective, data-driven analysis based on factual comparison.
 
 COMPETITOR DATA:
@@ -241,67 +241,66 @@ HIGH THREAT = Direct AP or AR functionality + targets B2B software market + sign
 MEDIUM THREAT = Adjacent financial automation OR targets different market but expanding
 LOW THREAT = Different focus area with minimal AP/AR overlap
 
-Analyze this format:
+Analyze in this format:
 
-**THREAT LEVEL: [HIGH/MEDIUM/LOW]**
+*THREAT LEVEL:* 🔴 HIGH / 🟡 MEDIUM / 💚 LOW
 
-**THREAT JUSTIFICATION:**
+*THREAT JUSTIFICATION:*
 [Specific reasoning based on their actual AP/AR capabilities, target market, and competitive positioning]
 
-**RECENT DEVELOPMENTS:**
+*RECENT DEVELOPMENTS:*
 [Key insights from recent news - funding, product launches, partnerships, market expansion]
 
-**AP/AR CAPABILITY ANALYSIS:**
-*Accounts Payable:*
+*AP/AR CAPABILITY ANALYSIS:*
+**Accounts Payable:**
 - Bill capture & processing: [Their capabilities vs Monite's OCR + workflow engine]
 - Approval workflows: [Their workflow features vs Monite's custom approval chains]
 - Payment execution: [Payment methods vs Monite's ACH/wire/international options]
 - Vendor management: [Their vendor features vs Monite's vendor portal]
 
-*Accounts Receivable:*
+**Accounts Receivable:**
 - Invoice creation: [Their invoicing vs Monite's template + recurring billing]
 - Payment collection: [Payment methods vs Monite's payment links + multi-method support]
 - Customer management: [Their CRM features vs Monite's credit limits + terms management]
 - Collections: [Dunning processes vs Monite's automated reminder sequences]
 
-**API & INTEGRATION COMPARISON:**
+*API & INTEGRATION COMPARISON:*
 [If API docs available: endpoint comparison, authentication methods, webhook support, SDK availability vs Monite's 200+ endpoints + React/JS/Python SDKs]
 
-**ACCOUNTING PLATFORM INTEGRATIONS:**
+*ACCOUNTING PLATFORM INTEGRATIONS:*
 [Their integration count/quality vs Monite's 40+ platforms with bi-directional sync]
 
-**PRODUCT TEAM ANALYSIS:**
-- *Feature gaps in Monite:* [Specific AP/AR features they offer that Monite lacks]
-- *Technical architecture differences:* [API design, integration patterns, scalability approaches]
-- *Investigation priorities:* [Specific areas for Monite product team to research]
+*PRODUCT TEAM ANALYSIS:*
+- Feature gaps in Monite: [Specific AP/AR features they offer that Monite lacks]
+- Technical architecture differences: [API design, integration patterns, scalability approaches]
+- Investigation priorities: [Specific areas for Monite product team to research]
 
-**SALES TEAM POSITIONING:**
-- *Monite's competitive advantages:* [Specific AP/AR strengths to emphasize in sales conversations]
-- *Competitor vulnerabilities:* [Gaps in their AP/AR offering to exploit]
-- *Discovery questions:* [Questions to ask prospects that highlight Monite's strengths]
+*SALES TEAM POSITIONING:*
+- Monite's competitive advantages: [Specific AP/AR strengths to emphasize in sales conversations]
+- Competitor vulnerabilities: [Gaps in their AP/AR offering to exploit]
+- Discovery questions: [Questions to ask prospects that highlight Monite's strengths]
 
-**MARKET POSITIONING:**
+*MARKET POSITIONING:*
 [Their go-to-market strategy, target customers, and positioning vs Monite's embedded finance approach]
 
-**OBJECTIVE ASSESSMENT:**
+*OBJECTIVE ASSESSMENT:*
 [Balanced view of their strengths and weaknesses relative to Monite, based on factual comparison rather than bias]
 
-IMPORTANT: Base analysis on factual capabilities found in their documentation/website. Clearly distinguish between confirmed features and assumptions. If limited information available, state this explicitly.
-
-
-        FORMAT FOR SLACK:
+FORMAT FOR SLACK:
 - Use *bold text* for headers (not **bold**)
 - Add blank lines between sections for spacing
 - Use emoji for threat level: 🔴 HIGH, 🟡 MEDIUM, 💚 LOW
 - Keep it clean and readable in Slack
 
-        """
+IMPORTANT: Base analysis on factual capabilities found in their documentation/website. Clearly distinguish between confirmed features and assumptions. If limited information available, state this explicitly.
+"""
         
+        # Call OpenAI
         client = OpenAI(api_key=OPENAI_API_KEY)
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=900
+            max_tokens=1000
         )
         
         analysis = response.choices[0].message.content
@@ -359,7 +358,7 @@ def handle_reaction_added(event, say):
                     
                     # Post analysis in thread
                     say(
-                        text=f"🚨 **RivalRadar Analysis**\n\n{analysis}",
+                        text=f"🚨 *RivalRadar Analysis*\n\n{analysis}",
                         thread_ts=event["item"]["ts"],
                         channel=event["item"]["channel"]
                     )
@@ -398,16 +397,12 @@ def analyze_command(ack, respond, command):
     url = command['text'].strip()
     if url:
         analysis = analyze_competitor_url(url)
-        respond(f"🚨 **RivalRadar Analysis**\n\n{analysis}")
+        respond(f"🚨 *RivalRadar Analysis*\n\n{analysis}")
     else:
         respond("Please provide a URL to analyze: `/analyze https://competitor.com`")
 
 if __name__ == "__main__":
-    # Add your tokens and uncomment to run
-
     handler = SocketModeHandler(app, os.environ.get("SLACK_APP_TOKEN"))
-
-
     handler.start()
-    print("🚨 RivalRadar ready! React with 📡 or 🔍 to any URL to trigger analysis!")
+    print("🚨 RivalRadar ready! React with 📡 to any URL to trigger analysis!")
     print("Emoji trigger system loaded - no more automatic URL analysis!")
