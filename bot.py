@@ -125,51 +125,167 @@ def find_and_analyze_api_docs(url, company_name):
     """Find and analyze competitor API documentation"""
     print(f"🔍 Searching for API documentation for {company_name}...")
     
+    # Extract base domain for better pattern matching
+    try:
+        from urllib.parse import urlparse
+        parsed_url = urlparse(url)
+        base_domain = parsed_url.netloc.replace('www.', '')
+        domain_parts = base_domain.split('.')
+        if len(domain_parts) >= 2:
+            domain_name = domain_parts[0]
+        else:
+            domain_name = company_name.lower()
+    except:
+        domain_name = company_name.lower()
+    
+    # Comprehensive API doc patterns
     api_patterns = [
-        f"{url.rstrip('/')}/api",
+        # Subdomain patterns (most common for API docs)
+        f"https://docs.{base_domain}",
+        f"https://api.{base_domain}", 
+        f"https://developers.{base_domain}",
+        f"https://developer.{base_domain}",
+        f"https://docs.{domain_name}.com",
+        f"https://api.{domain_name}.com",
+        f"https://developers.{domain_name}.com",
+        f"https://developer.{domain_name}.com",
+        f"https://docs.{domain_name}.io",
+        f"https://api.{domain_name}.io",
+        
+        # Path-based patterns
         f"{url.rstrip('/')}/docs",
+        f"{url.rstrip('/')}/api",
         f"{url.rstrip('/')}/developers",
+        f"{url.rstrip('/')}/developer",
         f"{url.rstrip('/')}/api-docs",
         f"{url.rstrip('/')}/documentation",
         f"{url.rstrip('/')}/reference",
         f"{url.rstrip('/')}/dev",
-        f"https://docs.{company_name.lower()}.com",
-        f"https://api.{company_name.lower()}.com",
-        f"https://developers.{company_name.lower()}.com"
+        f"{url.rstrip('/')}/guides",
+        f"{url.rstrip('/')}/help/api",
+        
+        # Alternative domain extensions
+        f"https://docs.{domain_name}.dev",
+        f"https://api.{domain_name}.dev",
     ]
     
-    api_analysis = ""
+    print(f"🔍 Trying {len(api_patterns)} API documentation patterns for {company_name}...")
     
-    for api_url in api_patterns:
+    api_analysis = ""
+    successful_url = None
+    
+    for i, api_url in enumerate(api_patterns):
         try:
+            print(f"  {i+1}. Checking: {api_url}")
             response = simple_request(api_url)
+            
             if response and response.status_code == 200:
                 soup = BeautifulSoup(response.content, 'html.parser')
-                content = soup.get_text()
+                content = soup.get_text().lower()
+                title = soup.find('title')
+                title_text = title.text if title else ""
                 
-                if any(keyword in content.lower() for keyword in ['api', 'endpoint', 'webhook', 'authentication', 'sdk', 'integration']):
-                    api_content = ' '.join(content.split())[:2000]
-                    api_analysis += f"API DOCUMENTATION FOUND ({api_url}):\n{api_content}\n\n"
-                    print(f"✅ Found API docs at {api_url}")
+                # Check for API documentation indicators
+                api_indicators = [
+                    'api reference', 'api documentation', 'rest api', 'graphql', 
+                    'endpoint', 'authentication', 'webhook', 'sdk', 'integration',
+                    'api key', 'bearer token', 'oauth', 'curl', 'postman',
+                    'request', 'response', 'json', 'xml', 'rate limit',
+                    'developer guide', 'getting started', 'quickstart'
+                ]
+                
+                indicator_count = sum(1 for indicator in api_indicators if indicator in content)
+                
+                # Title check for API docs
+                title_indicators = ['api', 'docs', 'documentation', 'developer', 'reference']
+                title_has_api = any(indicator in title_text.lower() for indicator in title_indicators)
+                
+                print(f"    📊 Found {indicator_count} API indicators, title check: {title_has_api}")
+                
+                if indicator_count >= 3 or title_has_api:
+                    print(f"✅ Found API documentation at {api_url}")
+                    
+                    # Extract more detailed content
+                    full_content = soup.get_text()
+                    
+                    # Look for specific technical details
+                    technical_sections = []
+                    
+                    # Find sections with technical content
+                    for section in soup.find_all(['div', 'section', 'article']):
+                        section_text = section.get_text()
+                        if any(keyword in section_text.lower() for keyword in ['endpoint', 'authentication', 'webhook', 'sdk']):
+                            technical_sections.append(section_text[:500])
+                    
+                    # Extract API endpoint examples
+                    code_blocks = soup.find_all(['code', 'pre'])
+                    api_examples = []
+                    for code in code_blocks:
+                        code_text = code.get_text().strip()
+                        if any(keyword in code_text.lower() for keyword in ['get ', 'post ', 'put ', 'delete ', 'api/', '/v1/', 'curl']):
+                            api_examples.append(code_text[:200])
+                    
+                    # Build comprehensive API analysis
+                    api_content_parts = [
+                        f"TITLE: {title_text}",
+                        f"CONTENT OVERVIEW: {full_content[:1000]}",
+                    ]
+                    
+                    if technical_sections:
+                        api_content_parts.append(f"TECHNICAL SECTIONS: {' | '.join(technical_sections[:3])}")
+                    
+                    if api_examples:
+                        api_content_parts.append(f"API EXAMPLES: {' | '.join(api_examples[:5])}")
+                    
+                    api_analysis = f"API DOCUMENTATION FOUND ({api_url}):\n" + "\n\n".join(api_content_parts)
+                    successful_url = api_url
                     break
-        except:
+                else:
+                    print(f"    ❌ Not API docs (only {indicator_count} indicators)")
+            else:
+                status = response.status_code if response else "No response"
+                print(f"    ❌ Failed ({status})")
+                
+        except Exception as e:
+            print(f"    ❌ Error: {e}")
             continue
     
+    # If no dedicated API docs found, search main site for API references
     if not api_analysis:
+        print("🔍 No dedicated API docs found, searching main site for API references...")
         try:
             response = simple_request(url)
             if response and response.status_code == 200:
                 soup = BeautifulSoup(response.content, 'html.parser')
+                
+                # Look for API mentions in the main site
                 api_mentions = []
-                for element in soup.find_all(['div', 'section', 'p'], string=lambda text: text and 'api' in text.lower()):
+                
+                # Search for elements containing API-related text
+                for element in soup.find_all(['div', 'section', 'p', 'span'], string=lambda text: text and any(keyword in text.lower() for keyword in ['api', 'integration', 'webhook', 'sdk'])):
                     text = element.get_text().strip()
-                    if len(text) > 50 and any(keyword in text.lower() for keyword in ['api', 'integration', 'webhook', 'sdk']):
-                        api_mentions.append(text[:300])
+                    if len(text) > 50 and len(text) < 300:
+                        api_mentions.append(text)
+                
+                # Also look for links to API docs
+                for link in soup.find_all('a', href=True):
+                    href = link['href']
+                    text = link.get_text().lower()
+                    if any(keyword in text for keyword in ['api', 'docs', 'developer', 'integration']) or any(pattern in href.lower() for pattern in ['/api', '/docs', '/developer']):
+                        full_link = href if href.startswith('http') else f"{url.rstrip('/')}{href}"
+                        api_mentions.append(f"Link: {text} -> {full_link}")
                 
                 if api_mentions:
-                    api_analysis = f"API REFERENCES FOUND ON MAIN SITE:\n" + "\n".join(api_mentions[:3])
-        except:
-            pass
+                    api_analysis = f"API REFERENCES FOUND ON MAIN SITE ({url}):\n" + "\n".join(api_mentions[:5])
+        except Exception as e:
+            print(f"❌ Error searching main site: {e}")
+    
+    if successful_url:
+        print(f"✅ Successfully analyzed API docs at: {successful_url}")
+    elif api_analysis:
+        print("✅ Found API references on main site")
+    else:
+        print("❌ No API documentation found")
     
     return api_analysis if api_analysis else "No public API documentation found"
 
@@ -669,7 +785,72 @@ def analyze_command(ack, respond, command):
     else:
         respond("Please provide a URL: `/analyze https://competitor.com`")
 
-@app.command("/rivalradar")
+@app.command("/test-api")
+def test_api_docs(ack, respond, command):
+    """Test API documentation discovery for debugging"""
+    ack()
+    
+    url = command['text'].strip()
+    if not url:
+        respond("Please provide a URL: `/test-api https://mercoa.com`")
+        return
+    
+    company_name = extract_company_name_from_url(url)
+    respond(f"🔍 Testing API documentation discovery for {company_name}...")
+    
+    try:
+        api_analysis = find_and_analyze_api_docs(url, company_name)
+        
+        if "No public API documentation found" in api_analysis:
+            respond(f"❌ No API docs found for {company_name}\n\nThis suggests the discovery patterns need refinement.")
+        else:
+            # Truncate for Slack
+            truncated_analysis = api_analysis[:2000] + "..." if len(api_analysis) > 2000 else api_analysis
+            respond(f"✅ API Documentation Analysis:\n\n{truncated_analysis}")
+            
+    except Exception as e:
+        respond(f"❌ Error testing API docs: {str(e)}")
+
+@app.command("/debug-mercoa") 
+def debug_mercoa(ack, respond):
+    """Specific debug command for Mercoa API docs"""
+    ack()
+    respond("🕵️ Running specific debug for Mercoa API documentation...")
+    
+    try:
+        # Test the known Mercoa docs URL
+        mercoa_docs = "https://docs.mercoa.com"
+        response = simple_request(mercoa_docs)
+        
+        if response and response.status_code == 200:
+            soup = BeautifulSoup(response.content, 'html.parser')
+            title = soup.find('title')
+            title_text = title.text if title else "No title"
+            
+            content = soup.get_text()[:1000]
+            
+            # Count API indicators
+            api_indicators = [
+                'api reference', 'api documentation', 'rest api', 'endpoint', 
+                'authentication', 'webhook', 'sdk', 'integration'
+            ]
+            
+            found_indicators = [indicator for indicator in api_indicators if indicator in content.lower()]
+            
+            debug_info = f"""DEBUG RESULTS for docs.mercoa.com:
+Status: {response.status_code}
+Title: {title_text}
+Content preview: {content[:500]}...
+Found indicators: {found_indicators}
+Total indicators: {len(found_indicators)}"""
+            
+            respond(debug_info)
+        else:
+            status = response.status_code if response else "No response"
+            respond(f"❌ Failed to access docs.mercoa.com - Status: {status}")
+            
+    except Exception as e:
+        @app.command("/rivalradar")
 def health_check(ack, respond):
     ack()
     available_apis = []
@@ -679,7 +860,7 @@ def health_check(ack, respond):
         available_apis.append("Brave Search")
     
     api_status = f"Search APIs: {', '.join(available_apis)}" if available_apis else "No search APIs configured"
-    respond(f"🚨 RivalRadar is online!\n{api_status}\nReact with 📡 to any URL or use `/analyze <url>`")
+    respond(f"🚨 RivalRadar is online!\n{api_status}\nReact with 📡 to any URL or use `/analyze <url>`\n\nDebug commands:\n• `/test-api <url>` - Test API doc discovery\n• `/debug-mercoa` - Debug Mercoa specifically")
 
 if __name__ == "__main__":
     print("🚨 Starting Intelligent RivalRadar...")
