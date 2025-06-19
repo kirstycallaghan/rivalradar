@@ -130,46 +130,80 @@ def extract_company_name_smart(title):
     return company_name.strip()
 
 def analyze_competitor_url(url):
-    """Analyze a competitor URL and generate intelligence"""
+    """Analyze a competitor URL with improved scraping and threat detection"""
     print(f"🔍 Analyzing: {url}")
     
     try:
+        # Enhanced headers to avoid blocking
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
         }
-        response = requests.get(url, headers=headers)
-        soup = BeautifulSoup(response.content, 'html.parser')
         
-        title = soup.find('title').text if soup.find('title') else "No title"
-        text_content = soup.get_text()[:3000]
+        # Try multiple scraping approaches
+        response = None
+        text_content = ""
+        title = "No title"
         
-        print(f"📄 Page title: {title}")
-        print("✅ Successfully grabbed page content")
+        # Attempt 1: Direct scraping
+        try:
+            response = requests.get(url, headers=headers, timeout=15)
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.content, 'html.parser')
+                title = soup.find('title').text if soup.find('title') else "No title"
+                text_content = soup.get_text()[:4000]  # Increased content limit
+                print(f"📄 Page title: {title}")
+                print("✅ Successfully grabbed page content")
+            else:
+                print(f"⚠️ HTTP {response.status_code} - trying alternative approach")
+                raise requests.RequestException("Non-200 status code")
+        except:
+            print("❌ Direct scraping failed, trying backup approach...")
+            
+        # Attempt 2: If direct scraping fails, search for company info
+        if len(text_content.strip()) < 100:  # Very little content found
+            print("🔍 Content too limited, searching for company information...")
+            company_name = extract_company_name_from_url(url)
+            
+            # Search for company information as backup
+            backup_content = search_company_info(company_name)
+            if backup_content:
+                text_content = backup_content
+                title = f"{company_name} - Company Information"
+                print("✅ Found backup company information")
+            else:
+                print("❌ Backup search also failed")
         
-        company_name = extract_company_name_smart(title)
+        company_name = extract_company_name_smart(title) if title != "No title" else extract_company_name_from_url(url)
         print(f"🏢 Detected company name: {company_name}")
         
         # Search for recent news
         recent_news = search_recent_news(company_name)
         
-        # Look for API documentation
-        api_links = find_api_docs(url, soup)
+        # Look for API documentation with multiple attempts
         api_analysis = ""
-        
-        if api_links:
-            print(f"🎯 Found {len(api_links)} potential API doc links")
-            for api_url in api_links:
-                api_data = analyze_api_docs(api_url)
-                if api_data and len(api_data['content']) > 500:
-                    api_analysis += f"\n\nAPI DOCS ANALYZED: {api_data['title']}\nURL: {api_data['url']}\nContent: {api_data['content'][:1500]}"
-                    break
+        if response and response.status_code == 200:
+            soup = BeautifulSoup(response.content, 'html.parser')
+            api_links = find_api_docs(url, soup)
+            
+            if api_links:
+                print(f"🎯 Found {len(api_links)} potential API doc links")
+                for api_url in api_links:
+                    api_data = analyze_api_docs(api_url)
+                    if api_data and len(api_data['content']) > 500:
+                        api_analysis += f"\n\nAPI DOCS ANALYZED: {api_data['title']}\nURL: {api_data['url']}\nContent: {api_data['content'][:1500]}"
+                        break
         
         if not api_analysis:
             print("❌ No substantial API documentation found")
         
         print("🤖 Sending to AI for analysis...")
         
-        # Complete Monite context with detailed AP/AR capabilities
+        # Complete Monite context
         monite_context = """
 MONITE'S DETAILED AP/AR CAPABILITIES FOR ACCURATE COMPARISON:
 
@@ -217,9 +251,9 @@ EMBEDDED FINANCE POSITIONING:
 - Deployment: Cloud-native, EU and US data centers
 """
         
-        # Enhanced prompt for objective, AP/AR-focused analysis
+        # Enhanced prompt with aggressive threat detection
         prompt = f"""
-You are analyzing a competitor to Monite's AP/AR automation platform. Provide objective, data-driven analysis based on factual comparison.
+You are analyzing a competitor to Monite's AP/AR automation platform. Be AGGRESSIVE in threat assessment - better to overestimate than underestimate threats.
 
 COMPETITOR DATA:
 URL: {url}
@@ -234,19 +268,25 @@ API DOCUMENTATION:
 
 {monite_context}
 
-ANALYSIS FRAMEWORK:
+AGGRESSIVE THREAT ASSESSMENT FRAMEWORK:
 
-**THREAT LEVEL ASSESSMENT:**
-HIGH THREAT = Direct AP or AR functionality + targets B2B software market + significant funding/traction
-MEDIUM THREAT = Adjacent financial automation OR targets different market but expanding
-LOW THREAT = Different focus area with minimal AP/AR overlap
+**AUTOMATIC HIGH THREAT INDICATORS:**
+- ANY mention of: "accounts payable", "bill pay", "vendor payments", "AP automation", "invoice processing"
+- ANY mention of: "accounts receivable", "invoicing", "payment collection", "AR automation" 
+- Target market includes: "small business", "SMB", "B2B payments", "business payments"
+- Significant funding: Series A+ or $10M+ raised
+- Established player with clear AP/AR focus
+
+**HIGH THREAT = Direct AP or AR functionality + any business traction**
+**MEDIUM THREAT = Adjacent financial services + expansion potential**  
+**LOW THREAT = Completely different industry**
 
 Analyze in this format:
 
 *THREAT LEVEL:* 🔴 HIGH / 🟡 MEDIUM / 💚 LOW
 
 *THREAT JUSTIFICATION:*
-[Specific reasoning based on their actual AP/AR capabilities, target market, and competitive positioning]
+[Be aggressive - if they do ANYTHING related to AP/AR, explain why it's a threat. Look for keywords like bill pay, invoicing, vendor payments, business payments, accounts payable, etc.]
 
 *RECENT DEVELOPMENTS:*
 [Key insights from recent news - funding, product launches, partnerships, market expansion]
@@ -254,7 +294,7 @@ Analyze in this format:
 *AP/AR CAPABILITY ANALYSIS:*
 **Accounts Payable:**
 - Bill capture & processing: [Their capabilities vs Monite's OCR + workflow engine]
-- Approval workflows: [Their workflow features vs Monite's custom approval chains]
+- Approval workflows: [Their workflow features vs Monite's custom approval chains]  
 - Payment execution: [Payment methods vs Monite's ACH/wire/international options]
 - Vendor management: [Their vendor features vs Monite's vendor portal]
 
@@ -284,7 +324,7 @@ Analyze in this format:
 [Their go-to-market strategy, target customers, and positioning vs Monite's embedded finance approach]
 
 *OBJECTIVE ASSESSMENT:*
-[Balanced view of their strengths and weaknesses relative to Monite, based on factual comparison rather than bias]
+[Balanced view but err on the side of caution - if uncertain, lean toward higher threat level]
 
 FORMAT FOR SLACK:
 - Use *bold text* for headers (not **bold**)
@@ -292,8 +332,68 @@ FORMAT FOR SLACK:
 - Use emoji for threat level: 🔴 HIGH, 🟡 MEDIUM, 💚 LOW
 - Keep it clean and readable in Slack
 
-IMPORTANT: Base analysis on factual capabilities found in their documentation/website. Clearly distinguish between confirmed features and assumptions. If limited information available, state this explicitly.
+CRITICAL: If content is limited due to scraping issues, state this clearly but still assess threat based on available information. Don't default to LOW threat just because of technical limitations.
 """
+        
+        # Call OpenAI
+        client = OpenAI(api_key=OPENAI_API_KEY)
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=1000
+        )
+        
+        analysis = response.choices[0].message.content
+        print("🎯 AI Analysis complete!")
+        
+        return analysis
+        
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        return f"❌ Analysis failed: {str(e)}"
+
+def extract_company_name_from_url(url):
+    """Extract company name from URL when title extraction fails"""
+    try:
+        # Remove protocol and www
+        domain = url.replace('https://', '').replace('http://', '').replace('www.', '')
+        # Get domain name without extension
+        company_name = domain.split('.')[0]
+        return company_name.capitalize()
+    except:
+        return "Unknown Company"
+
+def search_company_info(company_name):
+    """Search for company information when direct scraping fails"""
+    try:
+        print(f"🔍 Searching for {company_name} company information...")
+        
+        # Search for company description/about information
+        search_query = f"{company_name} company what does accounts payable invoicing"
+        search_url = f"https://www.google.com/search?q={search_query}"
+        
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
+        }
+        
+        response = requests.get(search_url, headers=headers, timeout=10)
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # Extract search result snippets
+        snippets = []
+        for result in soup.find_all('div', class_='g')[:5]:  # Top 5 results
+            snippet = result.find('span', class_='st') or result.find('div', class_='s')
+            if snippet:
+                snippets.append(snippet.get_text()[:300])
+        
+        if snippets:
+            return f"Company information from search results: " + " ".join(snippets)
+        
+        return None
+        
+    except Exception as e:
+        print(f"❌ Backup search failed: {e}")
+        return None
         
         # Call OpenAI
         client = OpenAI(api_key=OPENAI_API_KEY)
