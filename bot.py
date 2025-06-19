@@ -6,378 +6,46 @@ import re
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 import time
-import json
 
 # Initialize Slack app
 app = App(token=os.environ.get("SLACK_BOT_TOKEN"))
-
-# API keys
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-SERP_API_KEY = os.environ.get("SERP_API_KEY")
-BRAVE_API_KEY = os.environ.get("BRAVE_API_KEY")
 
 def simple_request(url):
-    """Simple, reliable request function"""
-    print(f"🌐 Fetching: {url}")
-    
+    """Simple request function"""
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Connection': 'keep-alive',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     }
     
     try:
         response = requests.get(url, headers=headers, timeout=15, verify=False)
-        print(f"📡 Status: {response.status_code}")
         return response
-    except Exception as e:
-        print(f"❌ Request failed: {e}")
-        return None
-
-def search_with_serp_api(company_name):
-    """Use SerpAPI to search for competitor intelligence"""
-    if not SERP_API_KEY:
-        return None
-        
-    try:
-        search_queries = [
-            f"{company_name} accounts payable AP automation features",
-            f"{company_name} bill pay vendor payments platform",
-            f"{company_name} funding valuation company overview"
-        ]
-        
-        all_results = []
-        
-        for query in search_queries:
-            url = "https://serpapi.com/search"
-            params = {
-                'api_key': SERP_API_KEY,
-                'q': query,
-                'engine': 'google',
-                'num': 5
-            }
-            
-            response = requests.get(url, params=params)
-            if response.status_code == 200:
-                data = response.json()
-                organic_results = data.get('organic_results', [])
-                
-                for result in organic_results:
-                    title = result.get('title', '')
-                    snippet = result.get('snippet', '')
-                    link = result.get('link', '')
-                    all_results.append(f"• {title}: {snippet} ({link})")
-            
-            time.sleep(1)
-        
-        if all_results:
-            return "\n".join(all_results[:10])
-            
-    except Exception as e:
-        print(f"❌ SerpAPI search failed: {e}")
-        return None
-
-def search_with_brave_api(company_name):
-    """Use Brave Search API for competitor intelligence"""
-    if not BRAVE_API_KEY:
-        return None
-        
-    try:
-        search_queries = [
-            f"{company_name} AP automation bill pay features",
-            f"{company_name} company funding business model"
-        ]
-        
-        all_results = []
-        
-        for query in search_queries:
-            url = "https://api.search.brave.com/res/v1/web/search"
-            headers = {
-                'Accept': 'application/json',
-                'X-Subscription-Token': BRAVE_API_KEY
-            }
-            params = {
-                'q': query,
-                'count': 5
-            }
-            
-            response = requests.get(url, headers=headers, params=params)
-            if response.status_code == 200:
-                data = response.json()
-                web_results = data.get('web', {}).get('results', [])
-                
-                for result in web_results:
-                    title = result.get('title', '')
-                    description = result.get('description', '')
-                    all_results.append(f"• {title}: {description}")
-            
-            time.sleep(1)
-        
-        if all_results:
-            return "\n".join(all_results[:8])
-            
-    except Exception as e:
-        print(f"❌ Brave API search failed: {e}")
-        return None
-
-def find_and_analyze_api_docs(url, company_name):
-    """Find and analyze competitor API documentation"""
-    print(f"🔍 Searching for API documentation for {company_name}...")
-    
-    # Extract base domain for better pattern matching
-    try:
-        from urllib.parse import urlparse
-        parsed_url = urlparse(url)
-        base_domain = parsed_url.netloc.replace('www.', '')
-        domain_parts = base_domain.split('.')
-        if len(domain_parts) >= 2:
-            domain_name = domain_parts[0]
-        else:
-            domain_name = company_name.lower()
     except:
-        domain_name = company_name.lower()
-    
-    # Comprehensive API doc patterns
-    api_patterns = [
-        # Subdomain patterns (most common for API docs)
-        f"https://docs.{base_domain}",
-        f"https://api.{base_domain}", 
-        f"https://developers.{base_domain}",
-        f"https://developer.{base_domain}",
-        f"https://docs.{domain_name}.com",
-        f"https://api.{domain_name}.com",
-        f"https://developers.{domain_name}.com",
-        f"https://developer.{domain_name}.com",
-        f"https://docs.{domain_name}.io",
-        f"https://api.{domain_name}.io",
-        
-        # Path-based patterns
-        f"{url.rstrip('/')}/docs",
-        f"{url.rstrip('/')}/api",
-        f"{url.rstrip('/')}/developers",
-        f"{url.rstrip('/')}/developer",
-        f"{url.rstrip('/')}/api-docs",
-        f"{url.rstrip('/')}/documentation",
-        f"{url.rstrip('/')}/reference",
-        f"{url.rstrip('/')}/dev",
-        f"{url.rstrip('/')}/guides",
-        f"{url.rstrip('/')}/help/api",
-        
-        # Alternative domain extensions
-        f"https://docs.{domain_name}.dev",
-        f"https://api.{domain_name}.dev",
-    ]
-    
-    print(f"🔍 Trying {len(api_patterns)} API documentation patterns for {company_name}...")
-    
-    api_analysis = ""
-    successful_url = None
-    
-    for i, api_url in enumerate(api_patterns):
-        try:
-            print(f"  {i+1}. Checking: {api_url}")
-            response = simple_request(api_url)
-            
-            if response and response.status_code == 200:
-                soup = BeautifulSoup(response.content, 'html.parser')
-                content = soup.get_text().lower()
-                title = soup.find('title')
-                title_text = title.text if title else ""
-                
-                # Check for API documentation indicators
-                api_indicators = [
-                    'api reference', 'api documentation', 'rest api', 'graphql', 
-                    'endpoint', 'authentication', 'webhook', 'sdk', 'integration',
-                    'api key', 'bearer token', 'oauth', 'curl', 'postman',
-                    'request', 'response', 'json', 'xml', 'rate limit',
-                    'developer guide', 'getting started', 'quickstart'
-                ]
-                
-                indicator_count = sum(1 for indicator in api_indicators if indicator in content)
-                
-                # Title check for API docs
-                title_indicators = ['api', 'docs', 'documentation', 'developer', 'reference']
-                title_has_api = any(indicator in title_text.lower() for indicator in title_indicators)
-                
-                print(f"    📊 Found {indicator_count} API indicators, title check: {title_has_api}")
-                
-                if indicator_count >= 3 or title_has_api:
-                    print(f"✅ Found API documentation at {api_url}")
-                    
-                    # Extract more detailed content
-                    full_content = soup.get_text()
-                    
-                    # Look for specific technical details
-                    technical_sections = []
-                    
-                    # Find sections with technical content
-                    for section in soup.find_all(['div', 'section', 'article']):
-                        section_text = section.get_text()
-                        if any(keyword in section_text.lower() for keyword in ['endpoint', 'authentication', 'webhook', 'sdk']):
-                            technical_sections.append(section_text[:500])
-                    
-                    # Extract API endpoint examples
-                    code_blocks = soup.find_all(['code', 'pre'])
-                    api_examples = []
-                    for code in code_blocks:
-                        code_text = code.get_text().strip()
-                        if any(keyword in code_text.lower() for keyword in ['get ', 'post ', 'put ', 'delete ', 'api/', '/v1/', 'curl']):
-                            api_examples.append(code_text[:200])
-                    
-                    # Build comprehensive API analysis
-                    api_content_parts = [
-                        f"TITLE: {title_text}",
-                        f"CONTENT OVERVIEW: {full_content[:1000]}",
-                    ]
-                    
-                    if technical_sections:
-                        api_content_parts.append(f"TECHNICAL SECTIONS: {' | '.join(technical_sections[:3])}")
-                    
-                    if api_examples:
-                        api_content_parts.append(f"API EXAMPLES: {' | '.join(api_examples[:5])}")
-                    
-                    api_analysis = f"API DOCUMENTATION FOUND ({api_url}):\n" + "\n\n".join(api_content_parts)
-                    successful_url = api_url
-                    break
-                else:
-                    print(f"    ❌ Not API docs (only {indicator_count} indicators)")
-            else:
-                status = response.status_code if response else "No response"
-                print(f"    ❌ Failed ({status})")
-                
-        except Exception as e:
-            print(f"    ❌ Error: {e}")
-            continue
-    
-    # If no dedicated API docs found, search main site for API references
-    if not api_analysis:
-        print("🔍 No dedicated API docs found, searching main site for API references...")
-        try:
-            response = simple_request(url)
-            if response and response.status_code == 200:
-                soup = BeautifulSoup(response.content, 'html.parser')
-                
-                # Look for API mentions in the main site
-                api_mentions = []
-                
-                # Search for elements containing API-related text
-                for element in soup.find_all(['div', 'section', 'p', 'span'], string=lambda text: text and any(keyword in text.lower() for keyword in ['api', 'integration', 'webhook', 'sdk'])):
-                    text = element.get_text().strip()
-                    if len(text) > 50 and len(text) < 300:
-                        api_mentions.append(text)
-                
-                # Also look for links to API docs
-                for link in soup.find_all('a', href=True):
-                    href = link['href']
-                    text = link.get_text().lower()
-                    if any(keyword in text for keyword in ['api', 'docs', 'developer', 'integration']) or any(pattern in href.lower() for pattern in ['/api', '/docs', '/developer']):
-                        full_link = href if href.startswith('http') else f"{url.rstrip('/')}{href}"
-                        api_mentions.append(f"Link: {text} -> {full_link}")
-                
-                if api_mentions:
-                    api_analysis = f"API REFERENCES FOUND ON MAIN SITE ({url}):\n" + "\n".join(api_mentions[:5])
-        except Exception as e:
-            print(f"❌ Error searching main site: {e}")
-    
-    if successful_url:
-        print(f"✅ Successfully analyzed API docs at: {successful_url}")
-    elif api_analysis:
-        print("✅ Found API references on main site")
-    else:
-        print("❌ No API documentation found")
-    
-    return api_analysis if api_analysis else "No public API documentation found"
-
-def gather_competitor_intelligence(company_name, failed_url):
-    """Gather competitive intelligence when direct scraping fails"""
-    print(f"🕵️ Gathering intelligence on {company_name} using alternative methods...")
-    
-    intelligence = []
-    
-    serp_results = search_with_serp_api(company_name)
-    if serp_results:
-        intelligence.append(f"SEARCH INTELLIGENCE:\n{serp_results}")
-    
-    brave_results = search_with_brave_api(company_name)
-    if brave_results:
-        intelligence.append(f"BRAVE SEARCH RESULTS:\n{brave_results}")
-    
-    alternative_pages = [
-        f"https://{company_name.lower()}.com/about",
-        f"https://{company_name.lower()}.com/features", 
-        f"https://{company_name.lower()}.com/pricing",
-        f"https://www.{company_name.lower()}.com",
-        f"https://{company_name.lower()}.io"
-    ]
-    
-    for alt_url in alternative_pages:
-        if alt_url != failed_url:
-            response = simple_request(alt_url)
-            if response and response.status_code == 200:
-                try:
-                    soup = BeautifulSoup(response.content, 'html.parser')
-                    content = soup.get_text()[:1500]
-                    if len(content.strip()) > 200:
-                        intelligence.append(f"FROM {alt_url}:\n{content}")
-                        break
-                except:
-                    continue
-    
-    if failed_url:
-        api_analysis = find_and_analyze_api_docs(failed_url, company_name)
-        if "No public API documentation found" not in api_analysis:
-            intelligence.append(api_analysis)
-    
-    linkedin_search_url = f"https://www.linkedin.com/company/{company_name.lower()}"
-    response = simple_request(linkedin_search_url)
-    if response and response.status_code == 200:
-        try:
-            soup = BeautifulSoup(response.content, 'html.parser')
-            desc_elements = soup.find_all(['p', 'div'], class_=['break-words', 'description'])
-            for elem in desc_elements:
-                text = elem.get_text().strip()
-                if len(text) > 100 and company_name.lower() in text.lower():
-                    intelligence.append(f"LINKEDIN COMPANY INFO:\n{text[:800]}")
-                    break
-        except:
-            pass
-    
-    if intelligence:
-        return "\n\n".join(intelligence)
-    else:
-        return f"Could not gather detailed intelligence on {company_name}. Manual research recommended."
+        return None
 
 def extract_company_name_from_url(url):
     """Extract company name from URL"""
     try:
         domain = url.replace('https://', '').replace('http://', '').replace('www.', '')
-        company_name = domain.split('.')[0]
-        return company_name.capitalize()
+        return domain.split('.')[0].capitalize()
     except:
         return "Unknown Company"
 
-def extract_company_name_smart(title):
-    """Extract company name from page title"""
-    if not title or title == "No title":
-        return "Unknown Company"
-        
-    if '|' in title:
-        parts = [part.strip() for part in title.split('|')]
-        company_name = parts[0] if len(parts[0].split()) <= 3 else parts[-1]
-    elif '-' in title:
-        parts = [part.strip() for part in title.split('-')]
-        company_name = parts[0] if len(parts[0].split()) <= 3 else parts[-1]
-    else:
-        words = title.split()
-        company_name = words[0] if words else title
-        
-    return company_name.strip()
+def get_monite_context():
+    """Get Monite context - keeping it simple to avoid syntax issues"""
+    return """Monite is an embedded AP/AR automation platform targeting:
+- Vertical SaaS platforms (healthcare, construction, staffing, professional services)
+- Horizontal SaaS platforms (marketplaces, neobanks, business tools)
 
-def analyze_competitor_intelligent(url):
-    """Intelligent competitor analysis with real-time intelligence gathering"""
-    print(f"🔍 Analyzing: {url}")
-    
+Key AP capabilities: OCR bill capture, approval workflows, vendor management, ACH/wire payments
+Key AR capabilities: Invoice creation, payment collection, dunning, customer management
+Technical: 200+ API endpoints, React/JS/Python SDKs, 40+ accounting integrations
+Implementation: 2-week average, transaction-based revenue sharing model
+
+Direct competitors include: Bill.com, Melio, Mercoa, and other embedded AP/AR platforms"""
+
+def analyze_competitor_simple(url):
+    """Simple competitor analysis"""
     company_name = extract_company_name_from_url(url)
     
     response = simple_request(url)
@@ -387,340 +55,95 @@ def analyze_competitor_intelligent(url):
             soup = BeautifulSoup(response.content, 'html.parser')
             title = soup.find('title').text if soup.find('title') else "No title"
             content = soup.get_text()
-            content = ' '.join(content.split())[:3000]
+            content = ' '.join(content.split())[:2000]
             
             if len(content.strip()) > 100:
-                company_name = extract_company_name_smart(title)
-                
-                api_analysis = find_and_analyze_api_docs(url, company_name)
-                
-                full_content = f"WEBSITE CONTENT:\n{content}\n\n{api_analysis}"
-                
                 return {
                     'success': True,
                     'title': title,
-                    'content': full_content,
-                    'company_name': company_name,
-                    'status': f"Successfully analyzed {url}",
-                    'method': 'direct_scraping'
+                    'content': content,
+                    'company_name': company_name
                 }
-        except Exception as e:
-            print(f"❌ Error parsing content: {e}")
+        except:
+            pass
     
-    print(f"🚫 Direct scraping failed for {company_name}, switching to intelligence gathering...")
-    
-    intelligence = gather_competitor_intelligence(company_name, url)
-    
-    if intelligence and "Could not gather" not in intelligence:
-        return {
-            'success': True,
-            'title': f"{company_name} - Intelligence Gathered",
-            'content': intelligence,
-            'company_name': company_name,
-            'status': f"Gathered intelligence for {company_name} using alternative methods",
-            'method': 'intelligence_gathering'
-        }
-    else:
-        return {
-            'success': False,
-            'title': f"{company_name} - Limited Access",
-            'content': f"Could not analyze {url} directly and intelligence gathering was limited. {company_name} may be blocking automated access. Manual research recommended: check LinkedIn company page, Crunchbase profile, or Google '{company_name} AP automation features' for competitive intelligence.",
-            'company_name': company_name,
-            'status': f"Analysis blocked - manual research needed",
-            'method': 'failed'
-        }
+    return {
+        'success': False,
+        'title': f"{company_name} - Limited Access",
+        'content': f"Could not fully analyze {url}. Manual research recommended.",
+        'company_name': company_name
+    }
 
-def get_monite_context():
-    """Get detailed Monite context for comparison"""
-    return """MONITE COMPREHENSIVE AP/AR CAPABILITIES - DETAILED TECHNICAL SPECS:
-
-TARGET MARKET & POSITIONING:
-- Primary Focus: Embedded AP/AR automation for B2B SaaS platforms, marketplaces, and neobanks
-- Vertical SaaS: Industry-specific platforms (healthcare, construction, professional services, staffing, etc.)
-- Horizontal SaaS: Cross-industry platforms (marketplaces, payment processors, business tools)
-- Embedded Finance Strategy: White-label AP/AR as a revenue-generating feature for platform partners
-- Implementation: 2-week average integration, transaction-based revenue sharing model
-
-ACCOUNTS PAYABLE (AP) AUTOMATION:
-Core Processing:
-- OCR bill capture: Email forwarding (@bills.monite.com), drag-drop upload, mobile scanning
-- Advanced data extraction: Line items, tax amounts, vendor details, invoice numbers, due dates, PO matching
-- Duplicate detection: Automated matching against existing bills and payments using ML algorithms
-- Smart coding & categorization: Chart of accounts mapping, tax code assignment, cost center allocation
-- Multi-currency support: 50+ currencies with real-time exchange rates and international tax handling
-
-Approval Workflows:
-- Custom multi-step approval chains: Sequential, parallel, conditional routing based on amount/vendor/category
-- Dynamic approval rules: Amount thresholds, vendor-specific rules, GL account triggers, department-based routing
-- Delegation & escalation: Temporary delegates, auto-escalation on timeout, holiday coverage
-- Mobile approval: Native mobile apps with push notifications and offline capability
-- Audit trails: Complete approval history with timestamps, comments, and compliance documentation
-
-Vendor Management:
-- Self-service vendor portal: W-9/tax form collection, bank details verification, document upload
-- Comprehensive vendor database: Contact management, payment terms, preferred payment methods, risk scoring
-- Automated vendor communications: Payment notifications, tax form requests, payment confirmations
-- Duplicate vendor detection: Fuzzy matching on name, TIN, address with manual review workflow
-- Vendor performance tracking: Payment history, early payment discounts, relationship scoring
-
-Payment Execution:
-- Comprehensive payment methods: ACH (same-day, next-day), wire transfers, international wires, check printing, virtual cards
-- Advanced payment scheduling: Future-dated payments, recurring payments, batch processing, cash flow optimization
-- Payment optimization: Early payment discounts, cash flow calendars, payment date recommendations
-- Bank integrations: Direct bank feeds from 1000+ banks, automated reconciliation, multi-account support
-- Payment status tracking: Real-time status updates, failed payment handling, automatic retry logic
-
-ACCOUNTS RECEIVABLE (AR) AUTOMATION:
-Invoice Management:
-- Flexible invoice creation: Template-based, recurring billing, milestone invoicing, project-based, subscription billing
-- Advanced line item management: Product catalogs, tax calculations, multi-tier discounts, custom fields
-- Brand customization: Fully branded templates, custom fields, terms and conditions, logo integration
-- Multi-currency invoicing: Currency conversion, international tax handling, multi-region compliance
-
-Quote & Estimate Management:
-- Professional quote creation: Template-based quotes, line item management, approval workflows
-- Seamless quote-to-invoice conversion: One-click conversion with change tracking and version control
-- Quote versioning: Multiple versions, comparison views, approval history, collaborative editing
-- Automated expiration management: Auto-expiration, renewal reminders, follow-up sequences
-
-Payment Collection:
-- Embedded payment links: Integrated in invoices, standalone payment pages, mobile-optimized checkout
-- Multiple payment methods: Credit cards, ACH, bank transfers, digital wallets (Apple Pay, Google Pay)
-- Flexible payment options: Partial payments, automatic allocation, payment plans, installment tracking
-- Customer self-service portals: Payment history, auto-pay setup, invoice downloads, dispute management
-
-Customer Management:
-- Comprehensive customer database: Contact management, billing addresses, payment preferences, credit profiles
-- Advanced credit management: Credit limits, payment terms, risk scoring, automated credit decisions
-- Customer communications: Automated notifications, payment confirmations, statements, custom messaging
-
-Collections & Dunning:
-- Intelligent automated dunning: ML-powered sequences, escalation rules, multi-channel communication
-- Advanced collection workflows: Task management, collector assignment, priority scoring, success tracking
-- Multi-channel payment reminders: Email, SMS, phone integration, multi-language support
-- Collections analytics: Aging reports, collection effectiveness, DSO tracking, predictive analytics
-
-E-INVOICING & COMPLIANCE:
-- Peppol e-invoicing: Full EU compliance, automated routing, digital signatures, real-time validation
-- Global tax compliance: VAT, GST, sales tax calculation across 30+ countries with automatic updates
-- Multiple document standards: UBL, XML, PDF/A-3, CII formats with automated format selection
-- Audit & compliance: Immutable records, compliance reporting, archival with legal validity
-
-TECHNICAL ARCHITECTURE:
-REST API (200+ endpoints):
-- Complete functionality coverage: All AP/AR operations accessible via API
-- Webhook system: Real-time notifications for 50+ events with guaranteed delivery
-- Rate limiting: 1000 requests/minute per API key with burst capability
-- Authentication: OAuth 2.0, scoped API keys, JWT tokens with role-based access
-- API versioning: Semantic versioning with 18-month backward compatibility guarantee
-
-SDKs & Developer Tools:
-- React SDK: Pre-built components, hooks, TypeScript support, theme customization
-- JavaScript SDK: Vanilla JS, Node.js support, Promise-based with async/await
-- Python SDK: Full API coverage, async support, type hints, Django/Flask helpers
-- Webhook handling: Signature verification, automatic retry logic, dead letter queues
-
-Embedded UI Components:
-- White-label iframes: Fully customizable, responsive design, mobile-optimized
-- React component library: 50+ pre-built components, theme support, accessibility compliant
-- Hosted payment pages: Branded checkout, invoice portals, vendor onboarding flows
-- Mobile SDKs: Native iOS/Android components for mobile-first platforms
-
-Data Architecture & Integrations:
-- Real-time bi-directional sync: Instant synchronization with accounting platforms
-- Flexible data mapping: Custom field mapping, transformation rules, validation
-- Conflict resolution: Automated and manual conflict handling with audit trails
-- Data retention: Configurable retention policies, GDPR compliance, right to be forgotten
-
-ACCOUNTING PLATFORM INTEGRATIONS (40+ platforms):
-Enterprise ERPs:
-- NetSuite: Full integration including custom fields, subsidiaries, multi-currency
-- SAP Business One: Complete AP/AR sync with real-time data exchange
-- Oracle NetSuite: Advanced integration with custom workflows and approval chains
-- Microsoft Dynamics: 365 and GP integration with role-based access control
-
-SMB Accounting Software:
-- QuickBooks (Online/Desktop): Real-time sync, custom field mapping, multi-company support
-- Xero: Complete integration with bank feeds, custom categories, multi-currency
-- Sage (50cloud, Intacct): Full AP/AR sync with advanced reporting integration
-- FreshBooks: Project-based billing integration with time tracking sync
-
-Specialized Platforms:
-- Zoho Books: Complete integration with CRM data sync
-- Wave Accounting: Small business integration with automated reconciliation
-- Manager: Custom integration for specific use cases
-- Industry-specific ERPs: Construction, healthcare, professional services
-
-COMPLIANCE & SECURITY:
-- SOC 2 Type II certified with annual audits
-- PCI DSS Level 1 compliant for payment processing
-- GDPR compliant with EU data residency options
-- Bank-level encryption (AES-256) for data at rest and in transit
-- Multi-factor authentication with SSO integration
-- Role-based access control with granular permissions
-- Real-time fraud detection and prevention
-
-DEPLOYMENT & SCALABILITY:
-- Cloud-native architecture: AWS/Azure deployment with auto-scaling
-- Global data centers: EU (Frankfurt), US (Virginia), Asia-Pacific (Singapore)
-- 99.9% uptime SLA with 24/7 monitoring and incident response
-- Dedicated implementation team: Technical onboarding, custom configuration
-- 24/7 technical support: Dedicated customer success managers for enterprise clients
-- Real-time system monitoring: Automated alerting, performance optimization
-
-PRICING & BUSINESS MODEL:
-- Transaction-based pricing: Competitive percentage of payment volume
-- Revenue sharing: Optional for platform partners with transparent fee structure
-- Usage-based API pricing: Generous included limits with per-call overage
-- No setup fees or monthly minimums for basic tier
-- Enterprise pricing: Custom pricing for high-volume clients with dedicated support
-
-COMPETITIVE POSITIONING:
-- Direct competition with: Bill.com, Melio, Mercoa, and other embedded AP/AR platforms
-- Differentiators: Comprehensive feature set, 40+ accounting integrations, 2-week implementation
-- Target customer overlap: Vertical SaaS platforms, horizontal marketplaces, fintech companies
-- Revenue model: Embedded finance approach with transaction-based revenue sharing"""
-
-def generate_analysis(url, analysis_result):
-    """Generate competitive analysis using OpenAI"""
-    
+def generate_analysis(url, result):
+    """Generate AI analysis"""
     monite_context = get_monite_context()
     
-    success = analysis_result['success']
-    title = analysis_result['title']
-    content = analysis_result['content']
-    company_name = analysis_result['company_name']
-    status = analysis_result['status']
-    method = analysis_result['method']
-    
-    data_quality_note = {
-        'direct_scraping': '✅ FULL DATA: Complete website analysis',
-        'intelligence_gathering': '🔍 GATHERED INTELLIGENCE: Using search APIs and alternative sources',
-        'failed': '⚠️ LIMITED DATA: Analysis blocked, manual research needed'
-    }.get(method, '❓ UNKNOWN DATA SOURCE')
-    
-    threat_guidance = {
-        'direct_scraping': 'Provide comprehensive threat analysis based on actual website content',
-        'intelligence_gathering': 'Assign MEDIUM threat for any business software/fintech domain. Focus on manual research recommendations',
-        'failed': 'Focus on domain analysis and recommend manual research'
-    }.get(method, 'Focus on available evidence')
-    
-    prompt = f"""You are a neutral competitive intelligence analyst evaluating a potential competitor to Monite's AP/AR automation platform. Provide an OBJECTIVE, data-driven analysis based solely on the evidence gathered.
+    prompt = f"""Analyze this competitor to Monite's embedded AP/AR automation platform.
 
-COMPETITOR: {company_name}
+COMPETITOR: {result['company_name']}
 URL: {url}
-DATA SOURCE: {data_quality_note}
-ANALYSIS METHOD: {method}
+SUCCESS: {result['success']}
 
-INTELLIGENCE GATHERED:
-{content}
+WEBSITE CONTENT:
+{result['content']}
 
-MONITE REFERENCE (for comparison only):
+MONITE CONTEXT:
 {monite_context}
 
-ANALYSIS FRAMEWORK:
-Provide a completely objective analysis with NO bias toward either company. Base ALL conclusions on concrete evidence from the gathered intelligence.
+Provide analysis with:
 
-THREAT LEVEL CRITERIA (strictly evidence-based):
-🔴 HIGH THREAT: Direct competitor targeting same market with similar functionality
-- Must have: AP/AR automation features (bill processing, invoice management, payment automation)
-- Must have: B2B embedded finance focus OR targets vertical/horizontal SaaS platforms
-- Must have: Developer-focused integration approach (APIs, SDKs, white-label solutions)
-- Examples: Mercoa, Bill.com (if embedded), Melio (if platform-focused), comprehensive AP/AR platforms
+THREAT LEVEL: HIGH/MEDIUM/LOW
+- HIGH: Direct AP/AR competitor targeting SaaS platforms with automation features
+- MEDIUM: Some AP/AR overlap but different focus
+- LOW: Minimal overlap or different market
 
-🟡 MEDIUM THREAT: Overlapping functionality but different primary focus OR partial feature overlap
-- Has some AP/AR features but not comprehensive automation
-- Different target market (direct end-users vs platform partners) but some overlap
-- Adjacent financial software with bill pay or invoicing components
-- Examples: Traditional accounting software with AP features, expense management tools with bill pay
+EVIDENCE-BASED ASSESSMENT:
+[What the evidence shows about their capabilities]
 
-💚 LOW THREAT: Minimal functional overlap OR clearly different market/use case
-- No clear AP/AR automation features beyond basic invoicing
-- B2C focus or clearly different vertical with no platform strategy
-- Basic financial tools without automation or platform integration
-- Examples: Simple invoicing tools, consumer payment apps, industry-specific tools without embedded strategy
+FUNCTIONAL COMPARISON:
+AP Capabilities: [Their bill processing, workflows, payments vs Monite]
+AR Capabilities: [Their invoicing, collections, customer management vs Monite]
 
-FORMAT REQUIREMENTS:
+COMPETITIVE POSITIONING:
+Where competitor appears stronger: [Based on evidence]
+Where Monite appears stronger: [Based on evidence]
 
-*THREAT LEVEL:* [Based ONLY on evidence - explain reasoning]
+ACTIONABLE RECOMMENDATIONS:
+For Product Team: [Specific features to investigate or enhance]
+For Sales Team: [Key advantages to emphasize, competitor gaps to highlight]
+For Research: [Manual research priorities]
 
-*EVIDENCE-BASED ASSESSMENT:*
-[2-3 sentences based purely on factual findings, no assumptions]
+Be objective, focus on AP/AR functionality, and make recommendations actionable."""
 
-*FUNCTIONAL ANALYSIS:*
-**AP (Accounts Payable) Capabilities:**
-- Bill capture/processing: [What evidence shows vs Monite's OCR/email forwarding]
-- Approval workflows: [Evidence found vs Monite's multi-step chains]
-- Payment execution: [Their methods vs Monite's ACH/wire/international]
-- Vendor management: [Evidence vs Monite's vendor portal/onboarding]
-
-**AR (Accounts Receivable) Capabilities:**
-- Invoice creation: [Evidence vs Monite's templates/recurring billing]
-- Payment collection: [Evidence vs Monite's payment links/multi-method]
-- Customer management: [Evidence vs Monite's credit limits/terms]
-- Collections/dunning: [Evidence vs Monite's automated sequences]
-
-*API & TECHNICAL COMPARISON:*
-[Compare based on actual API documentation found vs Monite's 200+ endpoints/SDKs]
-- API coverage: [Evidence found]
-- Developer tools: [SDKs, documentation quality]
-- Integration capabilities: [Evidence vs Monite's 40+ accounting platforms]
-
-*OBJECTIVE COMPETITIVE POSITIONING:*
-**Areas where competitor appears stronger:** [Based on evidence only]
-**Areas where Monite appears stronger:** [Based on evidence only]  
-**Unclear/requires investigation:** [What we couldn't determine]
-
-*RESEARCH RECOMMENDATIONS:*
-- **Immediate priorities:** [Specific areas needing verification]
-- **Manual research needed:** [Exact steps to gather missing data]
-- **Monitoring:** [What to track over time]
-
-CRITICAL INSTRUCTIONS:
-- NO promotional language for either company
-- NO assumptions beyond available evidence
-- When evidence is limited, clearly state limitations
-- Focus on specific AP/AR functionality, not generic "financial workflows"
-- Compare technical specifications when available
-- If API docs were found, provide detailed technical comparison"""
-    
     try:
         client = OpenAI(api_key=OPENAI_API_KEY)
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=900
+            max_tokens=800
         )
-        
         return response.choices[0].message.content
-        
     except Exception as e:
-        return f"❌ AI analysis failed: {str(e)}\n\nManual analysis needed for {company_name} at {url}"
+        return f"Analysis failed: {str(e)}"
 
 def analyze_competitor_url(url):
-    """Main function to analyze competitor URL with intelligent fallbacks"""
-    print(f"🚨 Starting intelligent RivalRadar analysis: {url}")
+    """Main analysis function"""
+    print(f"🚨 Analyzing: {url}")
     
     try:
-        analysis_result = analyze_competitor_intelligent(url)
-        analysis = generate_analysis(url, analysis_result)
-        
-        print("✅ Analysis complete!")
+        result = analyze_competitor_simple(url)
+        analysis = generate_analysis(url, result)
         return analysis
-        
     except Exception as e:
-        print(f"❌ Analysis failed: {e}")
-        return f"❌ RivalRadar analysis failed: {str(e)}\n\nTry manual research for this competitor."
+        return f"RivalRadar analysis failed: {str(e)}"
 
 def extract_urls_from_text(text):
-    """Extract URLs from message text"""
-    url_pattern = r'https?://[^\s<>"{}|\\^`\[\]]+'
-    return re.findall(url_pattern, text)
+    """Extract URLs from text"""
+    return re.findall(r'https?://[^\s<>"{}|\\^`\[\]]+', text)
 
 @app.event("reaction_added")
 def handle_reaction_added(event, say):
-    """Handle when someone adds a reaction to trigger analysis"""
-    
+    """Handle reaction trigger"""
     if event["reaction"] == "satellite_antenna":
         try:
             result = app.client.conversations_history(
@@ -732,8 +155,7 @@ def handle_reaction_added(event, say):
             
             if result["messages"]:
                 message = result["messages"][0]
-                message_text = message.get("text", "")
-                urls = extract_urls_from_text(message_text)
+                urls = extract_urls_from_text(message.get("text", ""))
                 
                 if urls:
                     app.client.reactions_add(
@@ -742,8 +164,7 @@ def handle_reaction_added(event, say):
                         name="eyes"
                     )
                     
-                    url = urls[0]
-                    analysis = analyze_competitor_url(url)
+                    analysis = analyze_competitor_url(urls[0])
                     
                     say(
                         text=f"🚨 *RivalRadar Analysis*\n\n{analysis}",
@@ -763,14 +184,13 @@ def handle_reaction_added(event, say):
                     )
                 else:
                     say(
-                        text="📡 RivalRadar triggered but no URLs found!",
+                        text="📡 No URLs found in message!",
                         thread_ts=event["item"]["ts"],
                         channel=event["item"]["channel"]
                     )
-                    
         except Exception as e:
             say(
-                text=f"❌ RivalRadar error: {str(e)}",
+                text=f"❌ Error: {str(e)}",
                 thread_ts=event["item"]["ts"],
                 channel=event["item"]["channel"]
             )
@@ -785,105 +205,24 @@ def analyze_command(ack, respond, command):
     else:
         respond("Please provide a URL: `/analyze https://competitor.com`")
 
-@app.command("/test-api")
-def test_api_docs(ack, respond, command):
-    """Test API documentation discovery for debugging"""
-    ack()
-    
-    url = command['text'].strip()
-    if not url:
-        respond("Please provide a URL: `/test-api https://mercoa.com`")
-        return
-    
-    company_name = extract_company_name_from_url(url)
-    respond(f"🔍 Testing API documentation discovery for {company_name}...")
-    
-    try:
-        api_analysis = find_and_analyze_api_docs(url, company_name)
-        
-        if "No public API documentation found" in api_analysis:
-            respond(f"❌ No API docs found for {company_name}\n\nThis suggests the discovery patterns need refinement.")
-        else:
-            # Truncate for Slack
-            truncated_analysis = api_analysis[:2000] + "..." if len(api_analysis) > 2000 else api_analysis
-            respond(f"✅ API Documentation Analysis:\n\n{truncated_analysis}")
-            
-    except Exception as e:
-        respond(f"❌ Error testing API docs: {str(e)}")
-
-@app.command("/debug-mercoa") 
-def debug_mercoa(ack, respond):
-    """Specific debug command for Mercoa API docs"""
-    ack()
-    respond("🕵️ Running specific debug for Mercoa API documentation...")
-    
-    try:
-        # Test the known Mercoa docs URL
-        mercoa_docs = "https://docs.mercoa.com"
-        response = simple_request(mercoa_docs)
-        
-        if response and response.status_code == 200:
-            soup = BeautifulSoup(response.content, 'html.parser')
-            title = soup.find('title')
-            title_text = title.text if title else "No title"
-            
-            content = soup.get_text()[:1000]
-            
-            # Count API indicators
-            api_indicators = [
-                'api reference', 'api documentation', 'rest api', 'endpoint', 
-                'authentication', 'webhook', 'sdk', 'integration'
-            ]
-            
-            found_indicators = [indicator for indicator in api_indicators if indicator in content.lower()]
-            
-            debug_info = f"""DEBUG RESULTS for docs.mercoa.com:
-Status: {response.status_code}
-Title: {title_text}
-Content preview: {content[:500]}...
-Found indicators: {found_indicators}
-Total indicators: {len(found_indicators)}"""
-            
-            respond(debug_info)
-        else:
-            status = response.status_code if response else "No response"
-            respond(f"❌ Failed to access docs.mercoa.com - Status: {status}")
-            
-    except Exception as e:
-        @app.command("/rivalradar")
+@app.command("/rivalradar")
 def health_check(ack, respond):
     ack()
-    available_apis = []
-    if SERP_API_KEY:
-        available_apis.append("SerpAPI")
-    if BRAVE_API_KEY:
-        available_apis.append("Brave Search")
-    
-    api_status = f"Search APIs: {', '.join(available_apis)}" if available_apis else "No search APIs configured"
-    respond(f"🚨 RivalRadar is online!\n{api_status}\nReact with 📡 to any URL or use `/analyze <url>`\n\nDebug commands:\n• `/test-api <url>` - Test API doc discovery\n• `/debug-mercoa` - Debug Mercoa specifically")
+    respond("🚨 RivalRadar is online! React with 📡 to any URL or use `/analyze <url>`")
 
 if __name__ == "__main__":
-    print("🚨 Starting Intelligent RivalRadar...")
+    print("🚨 Starting RivalRadar...")
     
     required_vars = ["SLACK_BOT_TOKEN", "SLACK_APP_TOKEN", "OPENAI_API_KEY"]
-    optional_vars = ["SERP_API_KEY", "BRAVE_API_KEY"]
-    
     missing = [var for var in required_vars if not os.environ.get(var)]
     
     if missing:
-        print(f"❌ Missing required environment variables: {', '.join(missing)}")
+        print(f"❌ Missing: {', '.join(missing)}")
         exit(1)
-    
-    available_search_apis = [var for var in optional_vars if os.environ.get(var)]
-    if available_search_apis:
-        print(f"✅ Search APIs available: {', '.join(available_search_apis)}")
-    else:
-        print("⚠️ No search APIs configured - intelligence gathering will be limited")
-        print("Consider adding SERP_API_KEY or BRAVE_API_KEY for enhanced analysis")
     
     try:
         handler = SocketModeHandler(app, os.environ.get("SLACK_APP_TOKEN"))
         handler.start()
-        print("✅ Intelligent RivalRadar ready!")
+        print("✅ RivalRadar ready!")
     except Exception as e:
         print(f"❌ Failed to start: {e}")
